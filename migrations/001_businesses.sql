@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS businesses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_user_id TEXT NOT NULL,
+  legal_name TEXT NOT NULL,
+  trade_name TEXT,
+  country TEXT NOT NULL DEFAULT 'United Arab Emirates',
+  emirate TEXT,
+  address TEXT,
+  phone TEXT,
+  email TEXT,
+  website TEXT,
+  trn TEXT,
+  vat_registered BOOLEAN NOT NULL DEFAULT false,
+  default_tax_rate NUMERIC(6,3) NOT NULL DEFAULT 5,
+  currency TEXT NOT NULL DEFAULT 'AED',
+  logo_url TEXT,
+  invoice_prefix TEXT NOT NULL DEFAULT 'INV-',
+  next_invoice_number INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)

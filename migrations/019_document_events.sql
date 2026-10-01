@@ -1,0 +1,15 @@
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS first_viewed_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS last_viewed_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS document_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  recipient TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)

@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS recurring_invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  frequency TEXT NOT NULL DEFAULT 'monthly',
+  next_run_date DATE NOT NULL,
+  end_date DATE,
+  active BOOLEAN NOT NULL DEFAULT true,
+  currency TEXT NOT NULL DEFAULT 'AED',
+  template_key TEXT NOT NULL DEFAULT 'classic',
+  vat_mode TEXT NOT NULL DEFAULT 'exclusive',
+  invoice_format TEXT NOT NULL DEFAULT 'full',
+  tax_display TEXT NOT NULL DEFAULT 'line',
+  discount_type TEXT NOT NULL DEFAULT 'fixed',
+  discount_value NUMERIC(14,3) NOT NULL DEFAULT 0,
+  notes TEXT,
+  terms TEXT,
+  items_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)

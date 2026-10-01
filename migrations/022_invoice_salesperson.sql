@@ -1,0 +1,2 @@
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS salesperson_name TEXT

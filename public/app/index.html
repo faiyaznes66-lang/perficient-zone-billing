@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Perficient Zone Billing</title>
+<link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/app/style.css">
+</head>
+<body>
+<div id="app" class="app-shell">
+  <aside class="sidebar">
+    <a class="brand side-brand pz-brand" href="/"><span class="brand-mark pz-mark">P</span><span>Perficient Zone</span></a>
+    <nav id="side-nav">
+      <button data-view="dashboard" class="active">⌂ <span>Home</span></button>
+      <button data-view="customers">♙ <span>Customers</span></button>
+      <button data-view="products">◆ <span>Items</span></button>
+      <button data-view="quotes">▣ <span>Quotes</span></button>
+      <button data-view="invoices">▤ <span>Invoices</span></button>
+      <button data-view="challans">▱ <span>Delivery Challans</span></button>
+      <button data-view="payments">⇩ <span>Payments Received</span></button>
+      <button data-view="expenses">▧ <span>Expenses</span></button>
+      <button data-view="time">◴ <span>Time Tracking</span></button>
+      <button data-view="projects">▦ <span>Projects</span></button>
+      <button data-view="reports">↗ <span>Reports</span></button>
+      <div class="nav-label">Apps</div>
+      <button data-view="recurring">◉ <span>Advanced Billing</span></button>
+      <button data-view="templates">◇ <span>Templates</span></button>
+      <button data-view="billing">★ <span>Plans</span></button>
+      <button data-view="settings">⚙ <span>Settings</span></button>
+    </nav>
+    <div class="side-foot"><div id="user-email"></div><button id="signout">Sign out</button></div>
+  </aside>
+
+  <main class="workspace">
+    <header class="app-topbar">
+      <div><button id="menu-btn" class="mobile-menu">☰</button><span id="page-title">Dashboard</span></div>
+      <button id="new-invoice-top" class="btn btn-primary">+ New invoice</button>
+    </header>
+    <section id="content" class="content"></section>
+  </main>
+</div>
+
+<template id="tpl-setup">
+  <div class="setup-wrap">
+    <div class="setup-card">
+      <span class="eyebrow">First-time setup</span><h1>Tell us about your business</h1>
+      <p>These details will appear on your invoices. You can change them later.</p>
+      <form id="business-form" class="form-grid">
+        <label class="span2">Legal business name<input name="legal_name" required placeholder="Example Business LLC"></label>
+        <label>Trade name<input name="trade_name" placeholder="Optional"></label>
+        <label>Emirate<select name="emirate"><option>Dubai</option><option>Abu Dhabi</option><option>Sharjah</option><option>Ajman</option><option>Ras Al Khaimah</option><option>Fujairah</option><option>Umm Al Quwain</option></select></label>
+        <label class="span2">Business address<textarea name="address" rows="2" placeholder="Street, area, emirate"></textarea></label>
+        <label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label>
+        <label>Website<input name="website" placeholder="https://"></label><label>Currency<select name="currency"><option>AED</option><option>USD</option><option>EUR</option><option>GBP</option><option>SAR</option><option>INR</option></select></label>
+        <label>VAT registered?<select name="vat_registered" id="vat-reg"><option value="false">No</option><option value="true">Yes</option></select></label>
+        <label>TRN<input name="trn" placeholder="Tax Registration Number"></label>
+        <label>Default VAT %<input name="default_tax_rate" type="number" step=".01" value="5"></label>
+        <label>Invoice prefix<input name="invoice_prefix" value="INV-"></label>
+        <label>Quote prefix<input name="quote_prefix" value="QUO-"></label>
+        <label>Default document language<select name="default_language"><option value="en">English</option><option value="ar">Arabic</option></select></label>
+        <div class="span2"><button class="btn btn-primary" type="submit">Save and open dashboard</button></div>
+      </form>
+    </div>
+  </div>
+</template>
+
+<script src="/app/app.js"></script>
+</body></html>

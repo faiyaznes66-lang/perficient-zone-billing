@@ -1,0 +1,5 @@
+name = "Perficient Zone Billing"
+
+[auth]
+enabled = true
+providers = ["email"]

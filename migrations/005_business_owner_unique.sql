@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS idx_businesses_owner_user_id ON businesses(owner_user_id)
