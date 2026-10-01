@@ -1,4 +1,5 @@
-const API=(window.__HATCHABLE__&&window.__HATCHABLE__.api)||"/api";
+const API=(window.__APP_CONFIG__&&window.__APP_CONFIG__.api)||"/api";
+const authClient=window.supabase.createClient(window.__APP_CONFIG__.supabaseUrl,window.__APP_CONFIG__.supabaseAnonKey);
 const state={
   user:null,business:null,customers:[],invoices:[],products:[],quotes:[],payments:[],expenses:[],recurring:[],challans:[],timeEntries:[],projects:[],refunds:[],bankCharges:[],badDebts:[],reviews:[],
   dashboard:null,dashboardYear:new Date().getFullYear(),report:null,planState:null,einvoice:null,view:"dashboard",template:"classic",editing:null,quoteEditing:null
@@ -12,7 +13,11 @@ const plusDays=(d,n)=>{const x=new Date(d+"T12:00:00");x.setDate(x.getDate()+n);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 
 async function api(path,opts={}){
-  const res=await fetch(API+path,{...opts,headers:{"Content-Type":"application/json",...(opts.headers||{})}});
+  const {data:{session}}=await authClient.auth.getSession();
+  const headers={...(opts.headers||{})};
+  if(session&&session.access_token)headers.Authorization="Bearer "+session.access_token;
+  if(!(opts.body instanceof FormData))headers["Content-Type"]=headers["Content-Type"]||"application/json";
+  const res=await fetch(API+path,{...opts,headers});
   if(res.status===401){location.href="/login?next="+encodeURIComponent("/app/");throw new Error("Sign in required")}
   const data=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(data.error||"Something went wrong");
@@ -20,10 +25,10 @@ async function api(path,opts={}){
 }
 
 async function boot(){
-  const s=await hatchable.auth.getSession().catch(()=>null);
-  if(!s||!s.user){location.replace("/login?next=/app/");return}
-  state.user=s.user;$("#user-email").textContent=s.user.email||"Signed in";
-  $("#signout").onclick=async()=>{await hatchable.auth.signOut();location.href="/"};
+  const {data:{session}}=await authClient.auth.getSession();
+  if(!session||!session.user){location.replace("/login?next=/app/");return}
+  state.user=session.user;$("#user-email").textContent=session.user.email||"Signed in";
+  $("#signout").onclick=async()=>{await authClient.auth.signOut();location.href="/"};
   $("#menu-btn").onclick=()=>$(".sidebar").classList.toggle("open");
   $("#new-invoice-top").onclick=()=>showInvoiceEditor();
   $$("#side-nav button[data-view]").forEach(b=>b.onclick=()=>navigate(b.dataset.view));
@@ -360,9 +365,7 @@ async function uploadCustomerDocuments(customerId,files){
   if(files.length>3)throw new Error("You can upload a maximum of 3 customer documents");
   for(const f of files)if(f.size>10*1024*1024)throw new Error(f.name+" exceeds the 10 MB limit");
   const fd=new FormData();[...files].forEach(f=>fd.append("documents",f));
-  const res=await fetch(API+"/customer-documents/"+customerId,{method:"POST",body:fd});
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok)throw new Error(data.error||"Document upload failed");
+  await api("/customer-documents/"+customerId,{method:"POST",body:fd});
 }
 function showCustomerModal(existing=null){
   const c=existing||{
