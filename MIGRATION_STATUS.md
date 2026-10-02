@@ -42,3 +42,11 @@ Imported:
 - [x] Business logos use a separate public image bucket
 - [x] Supabase magic-link authentication wired into the Hostinger branch
 - [ ] Add the Hostinger preview URL to Supabase Auth URL Configuration after the first preview deploy
+
+
+## Validation
+- [x] GitHub CI dependency installation passed on Node.js 22
+- [x] JavaScript syntax checks passed for server, API, pages, libraries and compatibility layer
+- [x] Required migration/runtime files verified
+- [x] Built-in Help Center added at `/help/`
+- [x] Draft PR #1 opened and intentionally left unmerged until Hostinger acceptance testing passes
