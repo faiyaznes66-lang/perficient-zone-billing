@@ -15,11 +15,11 @@ body{min-height:100vh;display:grid;place-items:center;background:linear-gradient
 <main class="login-card">
   <a class="brand login-brand" href="/"><span class="brand-mark">P</span><span>Perficient Zone Billing</span></a>
   <h1 id="title">Sign in or create an account</h1>
-  <p class="sub" id="sub">Enter your email and we'll send you a one-time code. No password to remember.</p>
+  <p class="sub" id="sub">Enter your email and we'll send you a secure sign-in link. No password to remember.</p>
   <form id="form" novalidate>
     <div id="email-row"><input class="field" id="email" type="email" placeholder="you@company.com" autocomplete="username webauthn" required></div>
-    <div id="code-row" hidden><input class="field" id="code" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]*" autocomplete="one-time-code" placeholder="6-digit code"></div>
-    <button class="btn btn-primary full" id="submit" type="submit">Continue</button>
+    <div id="code-row" hidden></div>
+    <button class="btn btn-primary full" id="submit" type="submit">Send sign-in link</button>
     <button class="alt" id="back" type="button" hidden>Use a different email</button>
   </form>
   <div id="passkey" hidden>
@@ -35,32 +35,22 @@ body{min-height:100vh;display:grid;place-items:center;background:linear-gradient
 (function(){
   var cfg=window.__APP_CONFIG__||{};
   var A=window.supabase&&window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
-  var form=document.getElementById('form'),emailRow=document.getElementById('email-row'),codeRow=document.getElementById('code-row');
-  var emailEl=document.getElementById('email'),codeEl=document.getElementById('code'),submit=document.getElementById('submit'),back=document.getElementById('back');
+  var form=document.getElementById('form'),emailEl=document.getElementById('email'),submit=document.getElementById('submit');
   var msg=document.getElementById('msg'),sub=document.getElementById('sub');
-  var step='email';
   function safeNext(){var raw=new URLSearchParams(location.search).get('next')||'/app/';return(raw[0]==='/'&&raw.indexOf('//')!==0)?raw:'/app/'}
   function say(t,k){msg.textContent=t||'';msg.className='msg '+(k||'')}
   if(!A){say('Sign-in is unavailable. Refresh and try again.','err');submit.disabled=true;return}
   A.auth.getSession().then(function(r){if(r.data&&r.data.session)location.replace(safeNext())});
-  back.onclick=function(){step='email';codeRow.hidden=true;emailRow.hidden=false;back.hidden=true;submit.textContent='Continue';sub.textContent="Enter your email and we'll send you a one-time code. No password to remember.";say('');emailEl.focus()};
   form.onsubmit=async function(e){
     e.preventDefault();submit.disabled=true;
     try{
-      var email=(emailEl.value||'').trim();
-      if(step==='email'){
-        if(!email)throw new Error('Enter your email address.');
-        var r=await A.auth.signInWithOtp({email:email,options:{shouldCreateUser:true}});
-        if(r.error)throw r.error;
-        step='code';emailRow.hidden=true;codeRow.hidden=false;back.hidden=false;submit.textContent='Sign in';
-        sub.textContent='Enter the code sent to '+email+'.';say('Code sent.');codeEl.focus();
-      }else{
-        var v=await A.auth.verifyOtp({email:email,token:(codeEl.value||'').trim(),type:'email'});
-        if(v.error)throw v.error;
-        if(v.data&&v.data.session)location.replace(safeNext());else throw new Error('That code did not work.');
-      }
-    }catch(err){say((err&&err.message)||'Could not sign in.','err')}
-    finally{submit.disabled=false}
+      var email=(emailEl.value||'').trim();if(!email)throw new Error('Enter your email address.');
+      var r=await A.auth.signInWithOtp({email:email,options:{shouldCreateUser:true,emailRedirectTo:location.origin+'/app/'}});
+      if(r.error)throw r.error;
+      emailEl.disabled=true;submit.hidden=true;
+      sub.textContent='We sent a secure sign-in link to '+email+'. Open the email and click the link to continue.';
+      say('Sign-in link sent. You can keep this page open.'); 
+    }catch(err){say((err&&err.message)||'Could not send the sign-in link.','err');submit.disabled=false}
   };
   emailEl.focus();
 })();
