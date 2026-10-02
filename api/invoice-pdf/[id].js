@@ -21,6 +21,6 @@ export default async function(req,res){
     res.setHeader("Content-Disposition",`attachment; filename="${String(x.invoice_number).replace(/[^a-zA-Z0-9_-]/g,"_")}.pdf"`);
     res.send(pdf);
   }catch(e){
-    res.status(503).json({error:"PDF generation is temporarily unavailable. The project must be public so the secure invoice page can be rendered."});
+    res.status(503).json({error:"Server PDF generation is not configured on this deployment yet. Use Print / Save PDF, or configure BROWSERLESS_URL and BROWSERLESS_TOKEN."});
   }
 }
