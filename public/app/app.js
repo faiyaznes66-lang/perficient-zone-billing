@@ -1,4 +1,5 @@
-const API=(window.__HATCHABLE__&&window.__HATCHABLE__.api)||"/api";
+const API=(window.__APP_CONFIG__&&window.__APP_CONFIG__.api)||"/api";
+const authClient=window.supabase.createClient(window.__APP_CONFIG__.supabaseUrl,window.__APP_CONFIG__.supabaseAnonKey);
 const state={
   user:null,business:null,customers:[],invoices:[],products:[],quotes:[],payments:[],expenses:[],recurring:[],challans:[],timeEntries:[],projects:[],refunds:[],bankCharges:[],badDebts:[],reviews:[],
   dashboard:null,dashboardYear:new Date().getFullYear(),report:null,planState:null,einvoice:null,view:"dashboard",template:"classic",editing:null,quoteEditing:null
@@ -12,7 +13,11 @@ const plusDays=(d,n)=>{const x=new Date(d+"T12:00:00");x.setDate(x.getDate()+n);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 
 async function api(path,opts={}){
-  const res=await fetch(API+path,{...opts,headers:{"Content-Type":"application/json",...(opts.headers||{})}});
+  const {data:{session}}=await authClient.auth.getSession();
+  const headers={...(opts.headers||{})};
+  if(session&&session.access_token)headers.Authorization="Bearer "+session.access_token;
+  if(!(opts.body instanceof FormData))headers["Content-Type"]=headers["Content-Type"]||"application/json";
+  const res=await fetch(API+path,{...opts,headers});
   if(res.status===401){location.href="/login?next="+encodeURIComponent("/app/");throw new Error("Sign in required")}
   const data=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(data.error||"Something went wrong");
@@ -20,10 +25,10 @@ async function api(path,opts={}){
 }
 
 async function boot(){
-  const s=await hatchable.auth.getSession().catch(()=>null);
-  if(!s||!s.user){location.replace("/login?next=/app/");return}
-  state.user=s.user;$("#user-email").textContent=s.user.email||"Signed in";
-  $("#signout").onclick=async()=>{await hatchable.auth.signOut();location.href="/"};
+  const {data:{session}}=await authClient.auth.getSession();
+  if(!session||!session.user){location.replace("/login?next=/app/");return}
+  state.user=session.user;$("#user-email").textContent=session.user.email||"Signed in";
+  $("#signout").onclick=async()=>{await authClient.auth.signOut();location.href="/"};
   $("#menu-btn").onclick=()=>$(".sidebar").classList.toggle("open");
   $("#new-invoice-top").onclick=()=>showInvoiceEditor();
   $$("#side-nav button[data-view]").forEach(b=>b.onclick=()=>navigate(b.dataset.view));
@@ -270,7 +275,7 @@ async function openCustomerDetail(id,initialTab="overview"){
         body=`<div class="customer-statement-toolbar"><div><strong>Customer Statement</strong><span>Issued invoices and recorded payments</span></div><div><button class="btn btn-outline" id="customer-statement-csv">Download CSV</button><button class="btn btn-outline" id="customer-statement-print">Print / PDF</button></div></div>
         ${data.statement.length?`<div class="table-wrap"><table class="data-table customer-statement-table"><thead><tr><th>Date</th><th>Document</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>${data.statement.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.document)}</td><td>${esc(x.description)}</td><td class="money">${x.debit?money(x.debit,x.currency||cur):"—"}</td><td class="money">${x.credit?money(x.credit,x.currency||cur):"—"}</td><td class="money"><strong>${money(x.balance,x.currency||cur)}</strong></td></tr>`).join("")}</tbody></table></div>`:empty("No issued invoices or payments available for a statement.")}`;
       }else if(tab==="documents"){
-        body=`<div class="customer-doc-tab-head"><div><strong>Documents</strong><span>Maximum 3 files, 10 MB each.</span></div><button class="btn btn-outline" id="customer-manage-docs">Manage documents</button></div>${data.documents.length?`<div class="customer-document-grid">${data.documents.map(x=>`<a class="customer-document-card" href="${esc(x.storage_url)}" target="_blank" rel="noopener"><strong>${esc(x.file_name)}</strong><span>${esc(x.content_type||"Document")}</span><small>${(Number(x.size_bytes||0)/1024/1024).toFixed(2)} MB · ${esc(new Date(x.created_at).toLocaleDateString())}</small></a>`).join("")}</div>`:empty("No documents uploaded for this customer.")}`;
+        body=`<div class="customer-doc-tab-head"><div><strong>Documents</strong><span>Maximum 3 files, 10 MB each. Files open through your authenticated session.</span></div><button class="btn btn-outline" id="customer-manage-docs">Manage documents</button></div>${data.documents.length?`<div class="customer-document-grid">${data.documents.map(x=>`<button type="button" class="customer-document-card customer-doc-open" data-id="${x.id}" data-name="${esc(x.file_name)}"><strong>${esc(x.file_name)}</strong><span>${esc(x.content_type||"Document")}</span><small>${(Number(x.size_bytes||0)/1024/1024).toFixed(2)} MB · ${esc(new Date(x.created_at).toLocaleDateString())}</small></button>`).join("")}</div>`:empty("No documents uploaded for this customer.")}`;
       }else if(tab==="contacts"){
         body=`<div class="customer-contacts-head"><div><strong>Contact Persons</strong><span>Saved contacts for this customer</span></div><button class="btn btn-outline" id="customer-edit-contacts">Edit contacts</button></div>${data.contacts.length?`<div class="customer-contact-grid">${data.contacts.map(x=>`<article class="customer-contact-card"><div class="customer-contact-avatar">${esc(String(x.name||"?").slice(0,1).toUpperCase())}</div><div><h4>${esc(x.name||"Unnamed contact")}</h4><p>${esc(x.designation||"")}</p><p>${esc(x.email||"")}</p><p>${esc(x.phone||"")}</p></div></article>`).join("")}</div>`:empty("No contact persons saved.")}`;
       }else if(tab==="reviews"){
@@ -304,6 +309,14 @@ async function openCustomerDetail(id,initialTab="overview"){
       $$(".customer-invoice-link").forEach(row=>row.onclick=()=>openInvoice(row.dataset.id));
 
       const manage=$("#customer-manage-docs");if(manage)manage.onclick=()=>showCustomerModal(c);
+      $(".customer-doc-open").forEach(b=>b.onclick=async()=>{try{
+        const {data:{session}}=await authClient.auth.getSession();
+        const res=await fetch(API+"/customer-documents/"+c.id+"?document_id="+encodeURIComponent(b.dataset.id),{headers:{Authorization:"Bearer "+session.access_token}});
+        if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.error||"Could not open document")}
+        const blob=await res.blob(),url=URL.createObjectURL(blob),w=window.open(url,"_blank");
+        if(!w){const a=document.createElement("a");a.href=url;a.download=b.dataset.name||"document";a.click()}
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+      }catch(err){alert(err.message)}});
       const editContacts=$("#customer-edit-contacts");if(editContacts)editContacts.onclick=()=>showCustomerModal(c);
       const addReview=$("#customer-add-review");if(addReview)addReview.onclick=()=>showCustomerReviewModal(c.id,async()=>openCustomerDetail(c.id,"reviews"));
 
@@ -360,9 +373,7 @@ async function uploadCustomerDocuments(customerId,files){
   if(files.length>3)throw new Error("You can upload a maximum of 3 customer documents");
   for(const f of files)if(f.size>10*1024*1024)throw new Error(f.name+" exceeds the 10 MB limit");
   const fd=new FormData();[...files].forEach(f=>fd.append("documents",f));
-  const res=await fetch(API+"/customer-documents/"+customerId,{method:"POST",body:fd});
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok)throw new Error(data.error||"Document upload failed");
+  await api("/customer-documents/"+customerId,{method:"POST",body:fd});
 }
 function showCustomerModal(existing=null){
   const c=existing||{

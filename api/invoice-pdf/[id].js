@@ -13,14 +13,15 @@ export default async function(req,res){
   if(!x) return res.status(404).json({error:"Invoice not found"});
   if(!x.share_enabled) return res.status(400).json({error:"Enable secure sharing before generating the PDF"});
   const proto=(req.headers["x-forwarded-proto"]||"https").split(",")[0];
-  const host=req.headers["x-forwarded-host"]||req.headers.host||"invoiceflow-uae.hatchable.site";
-  const url=`${proto}://${host}/invoice/${x.public_token}?render=pdf`;
+  const host=req.headers["x-forwarded-host"]||req.headers.host;
+  const base=(process.env.APP_URL||(host?`${proto}://${host}`:"")).replace(/\/$/,"");
+  const url=`${base}/invoice/${x.public_token}?render=pdf`;
   try{
     const pdf=await browser.pdf(url);
     res.setHeader("Content-Type","application/pdf");
     res.setHeader("Content-Disposition",`attachment; filename="${String(x.invoice_number).replace(/[^a-zA-Z0-9_-]/g,"_")}.pdf"`);
     res.send(pdf);
   }catch(e){
-    res.status(503).json({error:"PDF generation is temporarily unavailable. The project must be public so the secure invoice page can be rendered."});
+    res.status(503).json({error:"Server PDF generation is not configured on this deployment yet. Use Print / Save PDF, or configure BROWSERLESS_URL and BROWSERLESS_TOKEN."});
   }
 }

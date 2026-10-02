@@ -21,8 +21,17 @@ export default async function(req,res){
   if(!c[0]) return res.status(404).json({error:"Customer not found"});
 
   if(req.method==="GET"){
+    const documentId=req.query&&req.query.document_id;
+    if(documentId){
+      const {rows:d}=await db.query("SELECT * FROM customer_documents WHERE id=$1 AND customer_id=$2 AND business_id=$3",[documentId,customerId,b.id]);
+      if(!d[0]) return res.status(404).json({error:"Document not found"});
+      const file=await storage.get(d[0].storage_url);
+      res.setHeader("Content-Type",d[0].content_type||file.contentType||"application/octet-stream");
+      res.setHeader("Content-Disposition",`inline; filename="${String(d[0].file_name||"document").replace(/[^a-zA-Z0-9._-]/g,"_")}"`);
+      return res.send(file.buffer);
+    }
     const {rows}=await db.query("SELECT id,file_name,content_type,size_bytes,storage_url,created_at FROM customer_documents WHERE customer_id=$1 AND business_id=$2 ORDER BY created_at DESC",[customerId,b.id]);
-    return res.json({documents:rows});
+    return res.json({documents:rows.map(x=>({...x,storage_url:`/api/customer-documents/${customerId}?document_id=${x.id}`}))});
   }
 
   if(req.method==="DELETE"){
@@ -30,6 +39,7 @@ export default async function(req,res){
     if(!documentId) return res.status(400).json({error:"Document id is required"});
     const {rows}=await db.query("DELETE FROM customer_documents WHERE id=$1 AND customer_id=$2 AND business_id=$3 RETURNING *",[documentId,customerId,b.id]);
     if(!rows[0]) return res.status(404).json({error:"Document not found"});
+    if(rows[0].storage_url) await storage.del(rows[0].storage_url).catch(()=>{});
     return res.json({ok:true});
   }
 

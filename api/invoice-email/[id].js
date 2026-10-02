@@ -23,8 +23,9 @@ export default async function(req,res){
   if(!to) return res.status(400).json({error:"Customer email is required"});
 
   const proto=(req.headers["x-forwarded-proto"]||"https").split(",")[0];
-  const host=req.headers["x-forwarded-host"]||req.headers.host||"invoiceflow-uae.hatchable.site";
-  const link=`${proto}://${host}/invoice/${x.public_token}`;
+  const host=req.headers["x-forwarded-host"]||req.headers.host;
+  const base=(process.env.APP_URL||(host?`${proto}://${host}`:"")).replace(/\/$/,"");
+  const link=`${base}/invoice/${x.public_token}`;
   const sender=x.trade_name||x.legal_name;
   const customer=x.customer_company||x.customer_name||"Customer";
   const ar=x.language==="ar";
