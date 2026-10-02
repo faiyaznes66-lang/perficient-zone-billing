@@ -24,8 +24,8 @@ Imported:
 - subscriptions: 1
 
 ## Remaining before cutover
-- [ ] Enable RLS after approval
-- [ ] Create/configure storage bucket and private document strategy
+- [x] RLS enabled on all 24 application tables
+- [x] Public logo bucket and private customer-document bucket created and verified
 - [ ] Configure SMTP
 - [ ] Configure PDF service or keep browser Print/PDF fallback
 - [ ] Deploy `hostinger-migration` branch to Hostinger preview URL
@@ -34,3 +34,11 @@ Imported:
 - [ ] Perform final delta data sync
 - [ ] Switch production domain
 - [ ] Keep Hatchable available for rollback during the parallel-run window
+
+
+## Security/auth hardening completed
+- [x] Browser database access blocked by RLS; application data is backend-only
+- [x] Customer documents moved to private-storage design and authenticated download flow
+- [x] Business logos use a separate public image bucket
+- [x] Supabase magic-link authentication wired into the Hostinger branch
+- [ ] Add the Hostinger preview URL to Supabase Auth URL Configuration after the first preview deploy
