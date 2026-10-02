@@ -275,7 +275,7 @@ async function openCustomerDetail(id,initialTab="overview"){
         body=`<div class="customer-statement-toolbar"><div><strong>Customer Statement</strong><span>Issued invoices and recorded payments</span></div><div><button class="btn btn-outline" id="customer-statement-csv">Download CSV</button><button class="btn btn-outline" id="customer-statement-print">Print / PDF</button></div></div>
         ${data.statement.length?`<div class="table-wrap"><table class="data-table customer-statement-table"><thead><tr><th>Date</th><th>Document</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>${data.statement.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.document)}</td><td>${esc(x.description)}</td><td class="money">${x.debit?money(x.debit,x.currency||cur):"—"}</td><td class="money">${x.credit?money(x.credit,x.currency||cur):"—"}</td><td class="money"><strong>${money(x.balance,x.currency||cur)}</strong></td></tr>`).join("")}</tbody></table></div>`:empty("No issued invoices or payments available for a statement.")}`;
       }else if(tab==="documents"){
-        body=`<div class="customer-doc-tab-head"><div><strong>Documents</strong><span>Maximum 3 files, 10 MB each.</span></div><button class="btn btn-outline" id="customer-manage-docs">Manage documents</button></div>${data.documents.length?`<div class="customer-document-grid">${data.documents.map(x=>`<a class="customer-document-card" href="${esc(x.storage_url)}" target="_blank" rel="noopener"><strong>${esc(x.file_name)}</strong><span>${esc(x.content_type||"Document")}</span><small>${(Number(x.size_bytes||0)/1024/1024).toFixed(2)} MB · ${esc(new Date(x.created_at).toLocaleDateString())}</small></a>`).join("")}</div>`:empty("No documents uploaded for this customer.")}`;
+        body=`<div class="customer-doc-tab-head"><div><strong>Documents</strong><span>Maximum 3 files, 10 MB each. Files open through your authenticated session.</span></div><button class="btn btn-outline" id="customer-manage-docs">Manage documents</button></div>${data.documents.length?`<div class="customer-document-grid">${data.documents.map(x=>`<button type="button" class="customer-document-card customer-doc-open" data-id="${x.id}" data-name="${esc(x.file_name)}"><strong>${esc(x.file_name)}</strong><span>${esc(x.content_type||"Document")}</span><small>${(Number(x.size_bytes||0)/1024/1024).toFixed(2)} MB · ${esc(new Date(x.created_at).toLocaleDateString())}</small></button>`).join("")}</div>`:empty("No documents uploaded for this customer.")}`;
       }else if(tab==="contacts"){
         body=`<div class="customer-contacts-head"><div><strong>Contact Persons</strong><span>Saved contacts for this customer</span></div><button class="btn btn-outline" id="customer-edit-contacts">Edit contacts</button></div>${data.contacts.length?`<div class="customer-contact-grid">${data.contacts.map(x=>`<article class="customer-contact-card"><div class="customer-contact-avatar">${esc(String(x.name||"?").slice(0,1).toUpperCase())}</div><div><h4>${esc(x.name||"Unnamed contact")}</h4><p>${esc(x.designation||"")}</p><p>${esc(x.email||"")}</p><p>${esc(x.phone||"")}</p></div></article>`).join("")}</div>`:empty("No contact persons saved.")}`;
       }else if(tab==="reviews"){
@@ -309,6 +309,14 @@ async function openCustomerDetail(id,initialTab="overview"){
       $$(".customer-invoice-link").forEach(row=>row.onclick=()=>openInvoice(row.dataset.id));
 
       const manage=$("#customer-manage-docs");if(manage)manage.onclick=()=>showCustomerModal(c);
+      $(".customer-doc-open").forEach(b=>b.onclick=async()=>{try{
+        const {data:{session}}=await authClient.auth.getSession();
+        const res=await fetch(API+"/customer-documents/"+c.id+"?document_id="+encodeURIComponent(b.dataset.id),{headers:{Authorization:"Bearer "+session.access_token}});
+        if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.error||"Could not open document")}
+        const blob=await res.blob(),url=URL.createObjectURL(blob),w=window.open(url,"_blank");
+        if(!w){const a=document.createElement("a");a.href=url;a.download=b.dataset.name||"document";a.click()}
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+      }catch(err){alert(err.message)}});
       const editContacts=$("#customer-edit-contacts");if(editContacts)editContacts.onclick=()=>showCustomerModal(c);
       const addReview=$("#customer-add-review");if(addReview)addReview.onclick=()=>showCustomerReviewModal(c.id,async()=>openCustomerDetail(c.id,"reviews"));
 
