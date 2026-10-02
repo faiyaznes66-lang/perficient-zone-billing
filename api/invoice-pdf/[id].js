@@ -13,8 +13,9 @@ export default async function(req,res){
   if(!x) return res.status(404).json({error:"Invoice not found"});
   if(!x.share_enabled) return res.status(400).json({error:"Enable secure sharing before generating the PDF"});
   const proto=(req.headers["x-forwarded-proto"]||"https").split(",")[0];
-  const host=req.headers["x-forwarded-host"]||req.headers.host||"invoiceflow-uae.hatchable.site";
-  const url=`${proto}://${host}/invoice/${x.public_token}?render=pdf`;
+  const host=req.headers["x-forwarded-host"]||req.headers.host;
+  const base=(process.env.APP_URL||(host?`${proto}://${host}`:"")).replace(/\/$/,"");
+  const url=`${base}/invoice/${x.public_token}?render=pdf`;
   try{
     const pdf=await browser.pdf(url);
     res.setHeader("Content-Type","application/pdf");
