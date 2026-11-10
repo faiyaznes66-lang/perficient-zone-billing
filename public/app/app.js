@@ -1133,6 +1133,7 @@ function blankDraft(){
     invoice_format:"full",tax_display:state.business.vat_registered?"line":"hidden",vat_mode:"exclusive",
     discount_type:"fixed",discount_value:0,amount_paid:0,status:"draft",share_enabled:true,
     template_key:"classic",language:state.business.default_language||"en",exchange_rate_to_aed:1,
+    einvoice_document_type:"tax_invoice",einvoice_transaction_type_code:"00000000",einvoice_payment_means_code:"",
     items:[{item_name:"Service",description:"",quantity:1,unit:"",rate:0,discount_percent:0,tax_rate:state.business.vat_registered?Number(state.business.default_tax_rate||5):0,tax_category:state.business.vat_registered?"standard":"out_of_scope"}]
   };
 }
@@ -1147,6 +1148,8 @@ function showInvoiceEditor(existing=null){
     state.template=d.template_key||"classic";
   }
   applyCompliance(d);
+  const eiFlagLabels=["Free Trade Zone","Deemed Supply","Margin Scheme","Summary Invoice","Continuous Supply","Disclosed Agent Billing","Supply through e-commerce","Exports"];
+  const eiFlags=String(d.einvoice_transaction_type_code||"00000000").padEnd(8,"0").slice(0,8);
   $("#content").innerHTML=`<div class="page-head"><div><h1>${existing?"Edit invoice":"Create invoice"}</h1><p>${state.business.vat_registered?"VAT-registered businesses use compliance-aware tax display rules.":"Choose how tax information is displayed for non-VAT documents."}</p></div><button class="btn btn-outline" id="back-invoices">Back to invoices</button></div>
   <div class="template-bar" id="template-bar">${[["classic","Classic"],["modern","Modern"],["minimal","Minimal"],["corporate","Corporate"],["elegant","Elegant"],["professional","Professional"],["compact","Compact"],["bold","Bold"]].map(([k,n])=>`<button class="template-chip ${state.template===k?"active":""}" data-template="${k}">${n}</button>`).join("")}</div>
   <div class="invoice-editor">
@@ -1169,6 +1172,28 @@ function showInvoiceEditor(existing=null){
         <label class="editor-field span3 fx-field ${state.business.vat_registered&&d.currency!=="AED"?"":"hidden"}">Exchange rate to AED<input id="f-fx" type="number" step=".00000001" min="0" value="${Number(d.exchange_rate_to_aed||1)}"><small>Required so VAT can also be shown in AED.</small></label>
       </div>
 
+      <details class="customer-details" open style="margin:14px 0"><summary>UAE e-Invoicing (PINT AE)</summary>
+        <div class="editor-grid" style="padding:14px">
+          <label class="editor-field">e-Invoice document type<select id="f-ei-doc-type">
+            <option value="tax_invoice" ${d.einvoice_document_type!=="commercial_invoice"?"selected":""}>Tax invoice</option>
+            <option value="commercial_invoice" ${d.einvoice_document_type==="commercial_invoice"?"selected":""}>Commercial invoice</option>
+          </select></label>
+          <label class="editor-field">Payment means type code<select id="f-ei-payment-means">
+            <option value="">Select payment means</option>
+            <option value="1" ${String(d.einvoice_payment_means_code||"")==="1"?"selected":""}>1 · Instrument not defined</option>
+            <option value="10" ${String(d.einvoice_payment_means_code||"")==="10"?"selected":""}>10 · Cash</option>
+            <option value="20" ${String(d.einvoice_payment_means_code||"")==="20"?"selected":""}>20 · Cheque</option>
+            <option value="21" ${String(d.einvoice_payment_means_code||"")==="21"?"selected":""}>21 · Banker's draft</option>
+            <option value="30" ${String(d.einvoice_payment_means_code||"")==="30"?"selected":""}>30 · Credit transfer</option>
+            <option value="49" ${String(d.einvoice_payment_means_code||"")==="49"?"selected":""}>49 · Direct debit</option>
+            <option value="54" ${String(d.einvoice_payment_means_code||"")==="54"?"selected":""}>54 · Credit card</option>
+            <option value="55" ${String(d.einvoice_payment_means_code||"")==="55"?"selected":""}>55 · Debit card</option>
+            <option value="68" ${String(d.einvoice_payment_means_code||"")==="68"?"selected":""}>68 · Online payment service</option>
+          </select></label>
+          <div class="span3"><strong>Transaction type flags</strong><p class="muted">Leave unchecked unless the transaction actually falls under that category.</p></div>
+          ${eiFlagLabels.map((label,i)=>`<label class="editor-field" style="display:flex;flex-direction:row;align-items:center;gap:8px"><input type="checkbox" data-ei-flag="${i}" style="width:auto" ${eiFlags[i]==="1"?"checked":""}> ${label}</label>`).join("")}
+        </div>
+      </details>
       <div class="invoice-identity-box">
         <div class="invoice-logo-control">
           <div class="identity-label">Company logo</div>
@@ -1243,8 +1268,9 @@ async function showInvoiceActivity(id){
 }
 function bindEditorFields(){
   const d=state.editing;
-  const map=[["#f-customer","customer_id"],["#f-project","project_id"],["#f-number","invoice_number"],["#f-currency","currency"],["#f-date","invoice_date"],["#f-supply","supply_date"],["#f-due","due_date"],["#f-vatmode","vat_mode"],["#f-format","invoice_format"],["#f-taxdisplay","tax_display"],["#f-language","language"],["#f-status","status"],["#f-reference","reference"],["#f-salesperson","salesperson_name"],["#f-discount-type","discount_type"],["#f-discount","discount_value"],["#f-paid","amount_paid"],["#f-notes","notes"],["#f-terms","terms"],["#f-fx","exchange_rate_to_aed"],["#f-share","share_enabled"]];
+  const map=[["#f-customer","customer_id"],["#f-project","project_id"],["#f-number","invoice_number"],["#f-currency","currency"],["#f-date","invoice_date"],["#f-supply","supply_date"],["#f-due","due_date"],["#f-vatmode","vat_mode"],["#f-format","invoice_format"],["#f-taxdisplay","tax_display"],["#f-language","language"],["#f-status","status"],["#f-reference","reference"],["#f-salesperson","salesperson_name"],["#f-discount-type","discount_type"],["#f-discount","discount_value"],["#f-paid","amount_paid"],["#f-notes","notes"],["#f-terms","terms"],["#f-fx","exchange_rate_to_aed"],["#f-share","share_enabled"],["#f-ei-doc-type","einvoice_document_type"],["#f-ei-payment-means","einvoice_payment_means_code"]];
   map.forEach(([sel,key])=>{const el=$(sel);if(!el)return;el.oninput=el.onchange=()=>{if(["discount_value","amount_paid","exchange_rate_to_aed"].includes(key))d[key]=Number(el.value||0);else if(key==="share_enabled")d[key]=el.value==="true";else d[key]=el.value;if(key==="invoice_format"){applyCompliance(d);const td=$("#f-taxdisplay");if(td){td.innerHTML=d.invoice_format==="simplified"?'<option value="totals">VAT in totals (simplified)</option>':'<option value="line">VAT per line (full invoice)</option>';td.value=d.tax_display}renderPreview();return}if(key==="currency")$(".fx-field").classList.toggle("hidden",!(state.business.vat_registered&&d.currency!=="AED"));renderPreview()}});
+  $("[data-ei-flag]").forEach(el=>el.onchange=()=>{const flags=Array.from({length:8},(_,i)=>{const x=$('[data-ei-flag="'+i+'"]');return x&&x.checked?"1":"0"}).join("");d.einvoice_transaction_type_code=flags});
   $("#add-item").onclick=()=>{d.items.push({item_name:"Service",description:"",quantity:1,unit:"",rate:0,discount_percent:0,tax_rate:state.business.vat_registered?Number(state.business.default_tax_rate||5):0,tax_category:state.business.vat_registered?"standard":"out_of_scope"});renderItemRows();renderPreview()};
   $("#add-product-line").onclick=()=>{const p=state.products.find(x=>x.id===$("#product-picker").value);if(!p)return;d.items.push({item_name:p.name,description:p.description||"",quantity:1,unit:p.unit||"",rate:Number(p.rate),discount_percent:0,tax_rate:Number(p.tax_rate),tax_category:p.tax_category});renderItemRows();renderPreview()};
   $("#upload-invoice-logo").onclick=async()=>{
