@@ -40,6 +40,11 @@ export default async function(req,res){
   }
 
   const body=req.body||{};
+  const einvoiceDocType=["tax_invoice","commercial_invoice"].includes(body.einvoice_document_type)?body.einvoice_document_type:"tax_invoice";
+  const einvoiceFlags=String(body.einvoice_transaction_type_code||"00000000");
+  const paymentMeans=String(body.einvoice_payment_means_code||"");
+  if(!/^[01]{8}$/.test(einvoiceFlags)) return res.status(400).json({error:"UAE e-invoicing transaction flags must be eight 0/1 characters."});
+  if(paymentMeans&&!["1","10","20","21","30","49","54","55","68"].includes(paymentMeans)) return res.status(400).json({error:"Unsupported PINT AE payment means code."});
   if(!Array.isArray(body.items)||body.items.length===0) return res.status(400).json({error:"Add at least one invoice item"});
   try{await requireInvoiceCapacity(db,business.id)}catch(e){return res.status(e.status||402).json({error:e.message,code:e.code||"PLAN_LIMIT"})}
   const normalizedBody=business.vat_registered?body:{...body,items:body.items.map(it=>({...it,tax_category:"out_of_scope",tax_rate:0}))};
@@ -60,15 +65,17 @@ export default async function(req,res){
     `INSERT INTO invoices
       (business_id,customer_id,invoice_number,invoice_date,due_date,supply_date,status,currency,reference,notes,terms,
        tax_display,vat_mode,subtotal,discount_amount,taxable_amount,vat_amount,total,amount_paid,
-       template_key,invoice_format,discount_type,discount_value,share_enabled,exchange_rate_to_aed,vat_amount_aed,language,salesperson_name,project_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
+       template_key,invoice_format,discount_type,discount_value,share_enabled,exchange_rate_to_aed,vat_amount_aed,language,salesperson_name,project_id,
+       einvoice_document_type,einvoice_transaction_type_code,einvoice_payment_means_code)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
      RETURNING *`,
     [business.id,body.customer_id||null,invoiceNumber,body.invoice_date||new Date().toISOString().slice(0,10),
      body.due_date||null,body.supply_date||null,body.status||"draft",body.currency||business.currency||"AED",
      body.reference||null,body.notes||null,body.terms||"Payment due on receipt",comp.tax_display,body.vat_mode||"exclusive",
      calc.subtotal,calc.discount_amount,calc.taxable_amount,calc.vat_amount,calc.total,Math.max(0,Number(body.amount_paid)||0),
      body.template_key||"classic",comp.invoice_format,calc.discount_type,calc.discount_value,body.share_enabled!==false,
-     f.rate,f.vatAed,body.language==="ar"?"ar":"en",(body.salesperson_name||"").trim()||null,body.project_id||null]);
+     f.rate,f.vatAed,body.language==="ar"?"ar":"en",(body.salesperson_name||"").trim()||null,body.project_id||null,
+     einvoiceDocType,einvoiceFlags,paymentMeans||null]);
 
   const invoice=created[0];
   for(const it of calc.items){
