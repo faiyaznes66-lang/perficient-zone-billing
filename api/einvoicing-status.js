@@ -50,8 +50,9 @@ export default async function(req,res){
   const readiness={
     business_name:!!business.legal_name,
     tin:/^1\d{9}$/.test(String(business.tin_number||"")),
-    trade_license:!!business.trade_license_number,
+    trade_license:!!business.trade_license_number&&!!business.trade_license_authority,
     seller_address:!!business.address&&!!business.city&&!!business.emirate,
+    asp_contact:!!business.einvoice_contact_name&&/^\\S+@\\S+\\.\\S+$/.test(String(business.einvoice_contact_email||"")),
     trn:!business.vat_registered||!!business.trn,
     scope_assessed:(business.einvoice_scope_status||"not_assessed")!=="not_assessed",
     revenue_band_selected:(business.einvoice_revenue_band||"unknown")!=="unknown",
@@ -59,7 +60,7 @@ export default async function(req,res){
     asp_provider_connected:connected,
     asp_mapping_ready:!!(conn&&conn.mapping_ready)
   };
-  const required=["business_name","tin","trade_license","seller_address","trn","scope_assessed","revenue_band_selected"];
+  const required=["business_name","tin","trade_license","seller_address","trn","scope_assessed","revenue_band_selected","asp_contact"];
   const ready=required.every(k=>readiness[k]);
   res.json({
     connected,
