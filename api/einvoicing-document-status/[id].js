@@ -12,9 +12,9 @@ export default async function(req,res){
   const {rows:d}=await db.query("SELECT * FROM einvoice_documents WHERE invoice_id=$1 AND direction='outbound' AND provider_code='complyance' LIMIT 1",[i[0].id]);
   const doc=d[0];
   const documentId=doc?.provider_document_id||i[0].einvoice_provider_document_id;
-  if(!documentId) return res.status(409).json({error:"This invoice has not been submitted to Complyance.",code:"EINVOICE_NOT_SUBMITTED"});
+  if(!documentId||!doc) return res.status(409).json({error:"This invoice has no stored Complyance document record. Check the provider portal before any retry.",code:"EINVOICE_NOT_SUBMITTED"});
   const {rows:c}=await db.query("SELECT environment FROM einvoice_connections WHERE business_id=$1 AND provider_code='complyance' LIMIT 1",[b[0].id]);
-  const environment=c[0]?.environment||doc.provider_environment||"sandbox";
+  const environment=c[0]?.environment||doc?.provider_environment||"sandbox";
   try{
     const response=await complyanceRequest("/api/v3/documents/"+encodeURIComponent(documentId)+"?type=sales",{environment});
     const data=response.data||response;
