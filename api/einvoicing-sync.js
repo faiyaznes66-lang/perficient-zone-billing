@@ -31,8 +31,8 @@ export default async function(req,res){
     };
     await db.query(
       `UPDATE einvoice_connections SET
-        company_id=$2,source_id=$3,branch_id=$4,participant_id=$5,
-        mapping_ready=$6,onboarding_status=$7,metadata=$8::jsonb,
+        status=$2,company_id=$3,source_id=$4,branch_id=$5,participant_id=$6,
+        mapping_ready=$7,onboarding_status=$8,metadata=$9::jsonb,
         last_checked_at=now(),last_error=NULL,updated_at=now()
        WHERE business_id=$1`,
       [b[0].id,connectionStatus,metadata.companyId,metadata.sourceId,metadata.branchId,metadata.peppolParticipantId,mappingReady,onboardingStatus,JSON.stringify(metadata)]
