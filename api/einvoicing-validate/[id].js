@@ -70,7 +70,7 @@ export default async function(req,res){
     const pErrors=providerErrors(provider);
     return res.json({
       applicable:true,can_submit:valid,buyer_type:buyerType,errors:valid?[]:pErrors,
-      warnings:["Complyance validation does not store, exchange or report the invoice. The separate Send to Complyance action is required after reviewing the result."],
+      warnings:[...warnings,"Complyance validation does not store, exchange or report the invoice. The separate Send to Complyance action is required after reviewing the result."],
       provider_validation:valid?"passed":"failed",
       provider_response:provider,
       message:valid?"Complyance sandbox validation passed. The invoice has not been submitted.":"Complyance did not confirm that this payload is valid."
