@@ -50,3 +50,20 @@ Imported:
 - [x] Required migration/runtime files verified
 - [x] Built-in Help Center added at `/help/`
 - [x] Draft PR #1 opened and intentionally left unmerged until Hostinger acceptance testing passes
+
+
+## UAE e-Invoicing foundation (Hostinger migration branch)
+- [x] Added migration 030 for seller TIN/trade licence/scope/revenue profile
+- [x] Added ASP connection metadata and encrypted-credential columns (credentials are not stored in plaintext)
+- [x] Added immutable e-invoice document snapshots and inbound e-invoice inbox tables
+- [x] Added credit-note and credit-note-line data model for electronic corrections
+- [x] Added customer buyer classification (B2B, B2G, B2C, overseas business) and endpoint scheme
+- [x] Added invoice PINT AE document type, eight transaction flags and payment means code
+- [x] Added seller and buyer readiness checks in Settings
+- [x] Added invoice-level e-invoice preflight validation (does not transmit)
+- [x] Added guardrails so draft/cancelled invoices cannot be submitted
+- [ ] Apply migration 030 to Supabase before deploying this branch
+- [ ] Select a Ministry of Finance-accredited ASP and obtain its API documentation/test credentials
+- [ ] Implement and test the selected provider adapter for outbound exchange, inbound receipt and FTA reporting
+- [ ] Complete credit-note workflow, webhooks, retries and end-to-end certification tests
+- [ ] Enable production transmission only after ASP sandbox acceptance
