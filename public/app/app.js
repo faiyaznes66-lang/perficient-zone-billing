@@ -1129,6 +1129,7 @@ function renderSettings(){
       <span>${rd.trn?"✓":"○"} VAT TRN (if registered)</span>
       <span>${rd.scope_assessed?"✓":"○"} Scope assessed</span>
       <span>${rd.revenue_band_selected?"✓":"○"} Revenue band selected</span>
+      <span>${rd.asp_contact?"✓":"○"} FTA ASP contact details</span>
       <span>${rd.asp_provider_connected?"✓":"○"} Accredited ASP linked</span>
       <span>${rd.asp_mapping_ready?"✓":"○"} Provider mapping ready</span>
       <span>Business customers: ${Number(cs.business_customers||0)}</span>
