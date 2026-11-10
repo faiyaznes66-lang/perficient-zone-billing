@@ -53,7 +53,7 @@ export default async function(req,res){
     trade_license:!!business.trade_license_number&&!!business.trade_license_authority,
     seller_address:!!business.address&&!!business.city&&!!business.emirate,
     asp_contact:!!business.einvoice_contact_name&&/^\\S+@\\S+\\.\\S+$/.test(String(business.einvoice_contact_email||"")),
-    trn:!business.vat_registered||!!business.trn,
+    trn:!business.vat_registered||/^1\\d{12}03$/.test(String(business.trn||"").replace(/\\s+/g,"")),
     scope_assessed:(business.einvoice_scope_status||"not_assessed")!=="not_assessed",
     revenue_band_selected:(business.einvoice_revenue_band||"unknown")!=="unknown",
     customer_identifiers:!!(counts[0]&&Number(counts[0].customers_missing_identifiers)===0),
