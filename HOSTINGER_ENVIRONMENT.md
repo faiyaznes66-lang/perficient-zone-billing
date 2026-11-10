@@ -31,6 +31,12 @@ Browser Print / Save PDF remains available. Server PDF download additionally nee
 - `BROWSERLESS_URL`
 - `BROWSERLESS_TOKEN`
 
+## UAE e-Invoicing
+Provider connection credentials must be encrypted before saving:
+- `EINVOICE_CREDENTIALS_ENCRYPTION_KEY=<32-byte key encoded as 64 hexadecimal characters>`
+
+Do not store ASP API keys or secrets in browser code, source files, or plaintext database columns. The provider adapter must use the selected ASP's approved authentication and webhook-verification method.
+
 ## Recurring billing scheduler
 - `CRON_SECRET=<generate a strong random secret>`
 
