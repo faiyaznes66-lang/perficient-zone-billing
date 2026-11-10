@@ -55,8 +55,8 @@ async function loadReviews(){state.reviews=(await api("/customer-reviews")).revi
 async function loadDashboard(year=state.dashboardYear){state.dashboardYear=Number(year)||new Date().getFullYear();state.dashboard=await api("/dashboard?year="+encodeURIComponent(state.dashboardYear))}
 async function loadReport(){state.report=await api("/reports")}
 async function loadPlan(){state.planState=await api("/plan")}
-async function loadEinvoice(){state.einvoice=await api("/einvoicing-status")}
-async function loadEinvoiceInbox(){const result=await api("/einvoicing-inbox");state.einvoiceInbox=result.inbox||[]}
+async function loadEinvoice(){try{state.einvoice=await api("/einvoicing-status")}catch(err){state.einvoice={connected:false,message:"UAE e-Invoicing database migrations must be applied before the provider connection can be used."}}}
+async function loadEinvoiceInbox(){try{const result=await api("/einvoicing-inbox");state.einvoiceInbox=result.inbox||[]}catch(err){state.einvoiceInbox=[]}}
 async function loadAll(){await Promise.all([loadCustomers(),loadInvoices(),loadProducts(),loadQuotes(),loadPayments(),loadExpenses(),loadRecurring(),loadChallans(),loadTimeEntries(),loadProjects(),loadRefunds(),loadBankCharges(),loadBadDebts(),loadReviews(),loadDashboard(),loadReport(),loadPlan(),loadEinvoice(),loadEinvoiceInbox()])}
 
 function navActive(view){
