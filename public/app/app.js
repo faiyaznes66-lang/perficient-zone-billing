@@ -1053,7 +1053,8 @@ function renderSettings(){
   <form id="settings-form" class="form-grid">
     <label class="span2">Legal business name<input name="legal_name" value="${esc(b.legal_name)}" required></label>
     <label>Trade name<input name="trade_name" value="${esc(b.trade_name||"")}"></label><label>Emirate<input name="emirate" value="${esc(b.emirate||"")}"></label>
-    <label class="span2">Address<textarea name="address" rows="2">${esc(b.address||"")}</textarea></label>
+    <label class="span2">Address line 1<textarea name="address" rows="2">${esc(b.address||"")}</textarea></label>
+    <label>City<input name="city" value="${esc(b.city||"")}"></label>
     <label>Phone<input name="phone" value="${esc(b.phone||"")}"></label><label>Email<input name="email" type="email" value="${esc(b.email||"")}"></label>
     <label>Website<input name="website" value="${esc(b.website||"")}"></label><label>VAT TRN<input name="trn" value="${esc(b.trn||"")}"></label>
     <label>VAT registered?<select name="vat_registered"><option value="false" ${!b.vat_registered?"selected":""}>No</option><option value="true" ${b.vat_registered?"selected":""}>Yes</option></select></label>
@@ -1061,6 +1062,12 @@ function renderSettings(){
     <label>Tax Identification Number (TIN)<input name="tin_number" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" value="${esc(b.tin_number||"")}" placeholder="10 digits"></label>
     <label>Trade licence number<input name="trade_license_number" value="${esc(b.trade_license_number||"")}"></label>
     <label>Trade licence issuing authority<input name="trade_license_authority" value="${esc(b.trade_license_authority||"")}" placeholder="e.g. Dubai DET"></label>
+    <label>Legal registration ID type<select name="legal_registration_id_type">
+      <option value="TL" ${(b.legal_registration_id_type||"TL")==="TL"?"selected":""}>Trade licence (TL)</option>
+      <option value="EID" ${b.legal_registration_id_type==="EID"?"selected":""}>Emirates ID (EID)</option>
+      <option value="PAS" ${b.legal_registration_id_type==="PAS"?"selected":""}>Passport (PAS)</option>
+      <option value="CD" ${b.legal_registration_id_type==="CD"?"selected":""}>Cabinet Decision (CD)</option>
+    </select></label>
     <label>e-Invoicing scope assessment<select name="einvoice_scope_status">
       <option value="not_assessed" ${(b.einvoice_scope_status||"not_assessed")==="not_assessed"?"selected":""}>Not assessed</option>
       <option value="in_scope" ${b.einvoice_scope_status==="in_scope"?"selected":""}>In scope</option>
