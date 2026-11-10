@@ -45,8 +45,8 @@ export default async function(req,res){
       remarks=$25,tin_number=$26,buyer_id_value=$27,buyer_id_authority=$28,legal_name=$29,
       location_code_type=$30,location_code_value=$31,electronic_address=$32,payment_terms_days=$33,
       portal_enabled=$34,customer_owner_user_id=$35,customer_owner_email=$36,notes=$37,
-      electronic_address_scheme=$38,einvoice_buyer_type=$39,updated_at=now()
-     WHERE id=$40 AND business_id=$41 RETURNING *`,
+      electronic_address_scheme=$38,einvoice_buyer_type=$39,buyer_registration_type=$40,updated_at=now()
+     WHERE id=$41 AND business_id=$42 RETURNING *`,
     [display,company||null,c.email||null,c.phone||null,billing||c.billing_address||null,c.trn||null,
      cleanType(c.customer_type),c.salutation||null,first||null,last||null,display,c.display_name_ar||null,
      c.work_phone||null,c.mobile||null,cleanLang(c.customer_language),c.other_details||null,
@@ -55,7 +55,8 @@ export default async function(req,res){
      c.buyer_id_value||null,c.buyer_id_authority||null,legal||null,c.location_code_type||null,c.location_code_value||null,
      c.electronic_address||null,paymentDays(c.payment_terms_days),c.portal_enabled!==false,req.user.id,
      req.user.email||found[0].customer_owner_email||null,c.notes||null,c.electronic_address_scheme||"0235",
-     buyerType(c.einvoice_buyer_type,cleanType(c.customer_type)),id,business.id]);
+     buyerType(c.einvoice_buyer_type,cleanType(c.customer_type)),
+     ["TL","EID","PAS","CD"].includes(c.buyer_registration_type)?c.buyer_registration_type:"TL",id,business.id]);
 
   res.json({customer:rows[0]});
 }
