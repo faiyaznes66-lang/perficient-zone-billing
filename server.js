@@ -8,7 +8,7 @@ import { db,supabaseAdmin } from "./lib/platform.js";
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const app=express(),upload=multer({storage:multer.memoryStorage(),limits:{fileSize:12*1024*1024,files:5}});
-app.set("trust proxy",1);app.use(cookieParser());app.use(express.json({limit:"2mb"}));app.use(express.urlencoded({extended:true}));
+app.set("trust proxy",1);app.use(cookieParser());app.use(express.json({limit:"2mb",verify:(req,res,buf)=>{req.rawBody=Buffer.from(buf)}}));app.use(express.urlencoded({extended:true}));
 
 async function appUser(token){
   const {data,error}=await supabaseAdmin.auth.getUser(token);if(error||!data?.user?.email)return null;
