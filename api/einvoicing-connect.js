@@ -52,7 +52,8 @@ export default async function(req,res){
         ...(contactMobile?{contactPersonMobile:contactMobile}:{})
       };
       const created=await complyanceRequest("/v3/connect/companies",{environment,method:"POST",body:request,connect:true});
-      data=created.data||created;
+      const detail=await complyanceRequest("/v3/connect/companies/"+encodeURIComponent(sourceName)+"?sourceVersion="+encodeURIComponent(sourceVersion),{environment,connect:true});
+      data=detail.data||detail||created.data||created;
     }
 
     const companyId=data.companyId;
