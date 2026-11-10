@@ -25,6 +25,10 @@ export default async function(req,res){
   if(tin && !/^1\d{9}$/.test(tin)) return res.status(400).json({error:"UAE e-invoicing TIN must contain exactly 10 digits."});
   const scopeStatus=["in_scope","excluded","voluntary","not_assessed"].includes(b.einvoice_scope_status)?b.einvoice_scope_status:"not_assessed";
   const revenueBand=["below_50m","at_or_above_50m","government","unknown"].includes(b.einvoice_revenue_band)?b.einvoice_revenue_band:"unknown";
+  const einvoiceContactEmail=(b.einvoice_contact_email||"").trim().toLowerCase();
+  if(einvoiceContactEmail&&!/^\\S+@\\S+\\.\\S+$/.test(einvoiceContactEmail)) return res.status(400).json({error:"Enter a valid FTA authorised administrator email for ASP onboarding."});
+  const principalTrn=(b.einvoice_principal_trn||"").replace(/\\s+/g,"");
+  if(principalTrn&&!/^1\\d{12}03$/.test(principalTrn)) return res.status(400).json({error:"The disclosed-agent principal TRN must be a valid 15-digit UAE TRN."});
 
   const vals=[
     uid,legal,(b.trade_name||"").trim()||null,b.country||"United Arab Emirates",b.emirate||null,
@@ -36,9 +40,9 @@ export default async function(req,res){
     tin||null,(b.trade_license_number||"").trim()||null,(b.trade_license_authority||"").trim()||null,
     scopeStatus,revenueBand,!!b.einvoice_is_tax_group_member,(b.einvoice_branch_trade_license_number||"").trim()||null,
     (b.city||"").trim()||null,["TL","EID","PAS","CD"].includes(b.legal_registration_id_type)?b.legal_registration_id_type:"TL",
-    (b.einvoice_contact_name||"").trim()||null,(b.einvoice_contact_email||"").trim().toLowerCase()||null,
+    (b.einvoice_contact_name||"").trim()||null,einvoiceContactEmail||null,
     (b.einvoice_contact_mobile||"").trim()||null,(b.einvoice_beneficiary_id||"").trim()||null,
-    (b.einvoice_principal_trn||"").replace(/\\s+/g,"")||null
+    principalTrn||null
   ];
 
   const {rows}=await db.query(
