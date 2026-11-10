@@ -60,7 +60,7 @@ export default async function(req,res){
     const branchId=data.branchId;
     if(!companyId||!branchId) throw new Error("Complyance did not return the company and branch identifiers. Check the provider portal before retrying.");
     const mappingReady=data.readyForInvoicing===true;
-    const onboardingStatus=data.onboardingStatus||"draft";
+    const onboardingStatus=data.onboardingStatus||(data.readyForInvoicing===true?"onboarded":"draft");
     const connectionStatus=onboardingStatus==="onboarded"?"connected":"pending_authorization";
     const metadata={
       sourceName,sourceVersion,branchName,companyId,sourceId:data.sourceId||null,branchId,
