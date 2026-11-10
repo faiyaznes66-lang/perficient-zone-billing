@@ -1105,11 +1105,13 @@ function renderSettings(){
       <span>${rd.trade_license?"✓":"○"} Trade licence</span>
       <span>${rd.seller_address?"✓":"○"} Seller address</span>
       <span>${rd.trn?"✓":"○"} VAT TRN (if registered)</span>
+      <span>${rd.scope_assessed?"✓":"○"} Scope assessed</span>
+      <span>${rd.revenue_band_selected?"✓":"○"} Revenue band selected</span>
       <span>${rd.asp_provider_connected?"✓":"○"} Accredited ASP</span>
       <span>Business customers: ${Number(cs.business_customers||0)}</span>
       <span>Customers missing TIN/endpoint: ${Number(cs.customers_missing_identifiers||0)}</span>
     </div>
-    ${tl ? '<p style="margin-top:14px"><strong>Phase:</strong> '+esc(tl.phase)+' · ASP appointment deadline: '+esc(tl.appointment_deadline)+' · Implementation: '+esc(tl.implementation_date)+'</p>' : '<p class="muted" style="margin-top:14px">Select the annual revenue band above to display the applicable implementation timeline.</p>'}
+    ${tl ? '<p style="margin-top:14px"><strong>Phase:</strong> '+esc(tl.phase)+' · ASP appointment deadline: '+esc(tl.appointment_deadline)+' · Implementation: '+esc(tl.implementation_date)+'</p>'+(tl.appointment_overdue?'<p style="color:#a33b32;font-weight:700">The ASP appointment deadline for this revenue band has passed. Contact an accredited provider promptly.</p>':'') : '<p class="muted" style="margin-top:14px">Select the annual revenue band above to display the applicable implementation timeline.</p>'}
     ${e.tax_group_member ? '<p class="muted">Tax Group note: only qualifying transactions between members of the same Tax Group receive the temporary 24-month exclusion from 1 January 2027; third-party transactions remain subject to the applicable rules.</p>' : ''}
     <p class="muted" style="margin-top:12px">This panel checks profile readiness. Live exchange and FTA reporting remain disabled until an ASP is selected, a provider-specific adapter is configured and end-to-end testing passes.</p>
   </div></div>`;
