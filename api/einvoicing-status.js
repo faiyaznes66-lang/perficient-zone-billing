@@ -28,22 +28,23 @@ function timeline(band){
 export default async function(req,res){
   const {rows:b}=await db.query(
     `SELECT id,legal_name,trn,tin_number,vat_registered,address,emirate,trade_license_number,
-            trade_license_authority,city,einvoice_scope_status,einvoice_revenue_band,
+            trade_license_authority,city,einvoice_contact_name,einvoice_contact_email,einvoice_contact_mobile,einvoice_scope_status,einvoice_revenue_band,
             einvoice_is_tax_group_member,einvoice_branch_trade_license_number
      FROM businesses WHERE owner_user_id=$1 LIMIT 1`,[req.user.id]);
   if(!b[0]) return res.status(400).json({error:"Business not found"});
   const business=b[0];
-  const {rows:c}=await db.query("SELECT id,provider_name,provider_code,accreditation_number,status,environment,participant_id,last_checked_at,last_error,connected_at FROM einvoice_connections WHERE business_id=$1 LIMIT 1",[business.id]);
+  const {rows:c}=await db.query("SELECT id,provider_name,provider_code,accreditation_number,status,environment,participant_id,company_id,source_id,branch_id,source_name,source_version,branch_name,mapping_ready,onboarding_status,last_checked_at,last_error,connected_at,metadata FROM einvoice_connections WHERE business_id=$1 LIMIT 1",[business.id]);
   const conn=c[0]||null;
   const {rows:counts}=await db.query(
     `SELECT
        COUNT(*) FILTER (WHERE einvoice_buyer_type IN ('business','government'))::int AS business_customers,
        COUNT(*) FILTER (
          WHERE einvoice_buyer_type IN ('business','government')
-           AND (COALESCE(tin_number,'')='' OR COALESCE(electronic_address,'')='')
+           AND (COALESCE(tin_number,'')='' OR COALESCE(buyer_id_value,'')='')
        )::int AS customers_missing_identifiers
      FROM customers WHERE business_id=$1`,[business.id]);
-  const connected=!!(conn&&conn.status==="connected"&&conn.provider_code&&conn.accreditation_number);
+  const connected=!!(conn&&conn.status==="connected"&&conn.provider_code==="complyance"&&conn.accreditation_number==="112219");
+  const readyForInvoicing=connected&&conn.mapping_ready===true;
   const due=timeline(business.einvoice_revenue_band);
   if(due) due.appointment_overdue=new Date().toISOString().slice(0,10)>due.appointment_deadline;
   const readiness={
@@ -55,13 +56,24 @@ export default async function(req,res){
     scope_assessed:(business.einvoice_scope_status||"not_assessed")!=="not_assessed",
     revenue_band_selected:(business.einvoice_revenue_band||"unknown")!=="unknown",
     customer_identifiers:!!(counts[0]&&Number(counts[0].customers_missing_identifiers)===0),
-    asp_provider_connected:connected
+    asp_provider_connected:connected,
+    asp_mapping_ready:!!(conn&&conn.mapping_ready)
   };
   const required=["business_name","tin","trade_license","seller_address","trn","scope_assessed","revenue_band_selected"];
   const ready=required.every(k=>readiness[k]);
   res.json({
     connected,
-    connection:conn,
+    ready_for_invoicing:readyForInvoicing,
+    connection:conn?{
+      provider_name:conn.provider_name,provider_code:conn.provider_code,
+      accreditation_number:conn.accreditation_number,status:conn.status,
+      environment:conn.environment,participant_id:conn.participant_id,
+      company_id:conn.company_id,source_id:conn.source_id,branch_id:conn.branch_id,
+      source_name:conn.source_name,source_version:conn.source_version,
+      branch_name:conn.branch_name,mapping_ready:!!conn.mapping_ready,
+      onboarding_status:conn.onboarding_status,last_checked_at:conn.last_checked_at,
+      last_error:conn.last_error,metadata:conn.metadata||{}
+    }:null,
     scope_status:business.einvoice_scope_status||"not_assessed",
     revenue_band:business.einvoice_revenue_band||"unknown",
     tax_group_member:!!business.einvoice_is_tax_group_member,
@@ -72,8 +84,10 @@ export default async function(req,res){
     },
     readiness,
     seller_profile_complete:ready,
-    message:connected
-      ?"A UAE Accredited Service Provider connection is recorded. Provider transmission still depends on a configured and tested adapter."
-      :"No verified UAE Accredited Service Provider connection is configured. No e-invoice transmission has been attempted."
+    message:readyForInvoicing
+      ?"Complyance is linked and this source reports ready for invoicing. Sandbox validation is still required before any production use."
+      :connected
+        ?"Complyance is linked in sandbox. Complete the Default GETS Mapping and pass its Testbed cases before invoice submission."
+        :"Complyance is not linked. Complete the FTA ASP authorisation and connect the sandbox company."
   });
 }
