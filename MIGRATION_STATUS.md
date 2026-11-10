@@ -67,8 +67,11 @@ Imported:
 - [x] Incoming purchase invoice inbox and full-document retrieval endpoint
 - [x] Business Settings and invoice editor controls for connect, validate, submit, refresh and inbox
 - [x] Help Center Complyance onboarding and webhook tutorials
-- [ ] Apply migration 030 to Supabase (attempted; Supabase connection timed out)
-- [ ] Apply migration 031 to Supabase after 030
+- [x] Node unit tests for VAT-registered and non-VAT seller payload mapping, common unit/payment codes and validation-only envelopes
+- [x] GitHub Actions: dependency installation, unit tests, JavaScript syntax and migration runtime-file checks passed
+- [x] Restore the paused Supabase project and apply migration 030 successfully
+- [x] Apply migration 031 successfully after migration 030
+- [x] Verify the new seller, customer, connection, document, inbox and webhook columns in Supabase
 - [ ] Obtain Complyance ISV sandbox API key with read/write permission and add it to Hostinger as `COMPLYANCE_SANDBOX_API_KEY`
 - [ ] Complete FTA ASP authorisation for the Perficient legal entity using the exact contact email stored in Business Settings
 - [ ] Connect the company in sandbox and complete the Complyance Default GETS Mapping Testbed cases until `readyForInvoicing=true`
