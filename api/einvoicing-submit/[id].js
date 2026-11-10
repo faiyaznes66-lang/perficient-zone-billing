@@ -83,6 +83,7 @@ export default async function(req,res){
   }
 
   await db.query("UPDATE invoices SET einvoice_status='submitting',einvoice_last_error=NULL WHERE id=$1",[invoice.id]);
+  let submissionStarted=false;
   try{
     const validation=await complyanceRequest("/api/v3/unify",{environment,method:"POST",body:{...envelope,purpose:"validate"}});
     const valid=validation.valid===true||validation.data?.valid===true;
@@ -97,6 +98,7 @@ export default async function(req,res){
       return res.status(422).json({error:"Complyance sandbox validation did not pass. No invoice was submitted.",code:"COMPLYANCE_VALIDATION_FAILED",errors:providerErrors,provider_response:validation});
     }
 
+    submissionStarted=true;
     const submitted=await complyanceRequest("/api/v3/unify",{environment,method:"POST",body:envelope});
     const data=submitted.data||submitted;
     const documentId=data.documentId||submitted.documentId;
@@ -126,8 +128,8 @@ export default async function(req,res){
   }catch(error){
     const providerErrors=errorsFrom(error.provider);
     const knownRejection=error.status===400||error.status===401||error.status===403||error.status===404||error.status===412||error.status===422||error.status===429;
-    const status=knownRejection?"submission_failed":"submission_unknown";
-    const message=String(error.message||"Complyance submission failed").slice(0,2000);
+    const status=!submissionStarted?"validation_failed":(knownRejection?"submission_failed":"submission_unknown");
+    const message=String(error.message||"Complyance request failed").slice(0,2000);
     await db.query(
       `UPDATE einvoice_documents SET status=$2,provider_errors=$3::jsonb,provider_response=$4::jsonb,
        last_error=$5,updated_at=now() WHERE id=$1`,
@@ -135,8 +137,8 @@ export default async function(req,res){
     );
     await db.query("UPDATE invoices SET einvoice_status=$2,einvoice_last_error=$3 WHERE id=$1",[invoice.id,status,message]);
     return res.status(error.status||502).json({
-      error:knownRejection?message:"The provider request may have reached Complyance but its result is not confirmed. Do not resubmit until the provider portal has been checked.",
-      code:knownRejection?(error.code||"COMPLYANCE_SUBMISSION_FAILED"):"EINVOICE_SUBMISSION_UNKNOWN",
+      error:!submissionStarted?"Complyance validation was unavailable or rejected the payload. No invoice submission was attempted.":(knownRejection?message:"The provider request may have reached Complyance but its result is not confirmed. Do not resubmit until the provider portal has been checked."),
+      code:!submissionStarted?(error.code||"COMPLYANCE_VALIDATION_FAILED"):(knownRejection?(error.code||"COMPLYANCE_SUBMISSION_FAILED"):"EINVOICE_SUBMISSION_UNKNOWN"),
       status,errors:providerErrors
     });
   }
