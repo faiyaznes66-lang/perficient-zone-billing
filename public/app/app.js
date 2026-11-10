@@ -259,7 +259,7 @@ async function openCustomerDetail(id,initialTab="overview"){
           <section class="customer-detail-card"><h3>Address</h3><div class="customer-address-block">${esc(c.billing_address||[c.address_line1,c.address_line2,c.city,c.emirate,c.postal_code,c.country].filter(Boolean).join(", ")||"No address saved")}</div></section>
           <section class="customer-detail-card"><h3>Tax & electronic invoicing</h3><div class="customer-info-grid">
             ${info("TRN",c.trn)}${info("TIN",c.tin_number)}${info("Buyer ID",c.buyer_id_value)}${info("Buyer ID authority",c.buyer_id_authority)}
-            ${info("Location code type",c.location_code_type)}${info("Location code",c.location_code_value)}${info("Electronic address",c.electronic_address)}
+            ${info("Location code type",c.location_code_type)}${info("Location code",c.location_code_value)}${info("Electronic address",c.electronic_address)}${info("e-Invoicing buyer type",c.einvoice_buyer_type)}
           </div></section>
           <section class="customer-detail-card"><h3>Remarks</h3><p class="customer-long-text">${esc(c.remarks||c.notes||"No remarks added.")}</p></section>
         </div>`;
@@ -509,6 +509,8 @@ function showCustomerModal(existing=null){
   const renderContacts=()=>{const host=$(".contact-persons-host",wrap);host.innerHTML=customerContactRowsHtml(contacts);$$(".contact-person-row",host).forEach(row=>{const i=Number(row.dataset.i);$$("[data-k]",row).forEach(el=>el.oninput=()=>contacts[i][el.dataset.k]=el.value);$(".remove-repeat",row).onclick=()=>{contacts.splice(i,1);renderContacts()}})};
   const renderCustom=()=>{const host=$(".custom-fields-host",wrap);host.innerHTML=customerCustomRowsHtml(custom);$$(".custom-field-row",host).forEach(row=>{const i=Number(row.dataset.i);$$("[data-k]",row).forEach(el=>el.oninput=()=>custom[i][el.dataset.k]=el.value);$(".remove-repeat",row).onclick=()=>{custom.splice(i,1);renderCustom()}})};
   renderContacts();renderCustom();
+  const buyerTypeSelect=$('select[name="einvoice_buyer_type"]',wrap);
+  $('input[name="customer_type"]',wrap).forEach(el=>el.onchange=()=>{if(buyerTypeSelect)buyerTypeSelect.value=el.value==="individual"?"consumer":"business"});
   $(".add-contact-person",wrap).onclick=()=>{contacts.push({name:"",email:"",phone:"",designation:""});renderContacts()};
   $(".add-custom-field",wrap).onclick=()=>{custom.push({label:"",value:""});renderCustom()};
   $(".close-modal",wrap).onclick=$(".close-customer",wrap).onclick=()=>wrap.remove();
