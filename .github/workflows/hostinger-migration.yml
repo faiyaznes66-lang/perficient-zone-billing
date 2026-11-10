@@ -25,4 +25,10 @@ jobs:
           test -f .env.example
           test -f migrations/028_enable_rls.sql
           test -f migrations/029_storage_buckets.sql
+          test -f migrations/030_uae_einvoicing_foundation.sql
+          test -f migrations/031_complyance_isv_connector.sql
+          test -f lib/complyance.js
+          test -f api/einvoicing-connect.js
+          test -f api/einvoicing-submit/[id].js
+          test -f api/webhooks/complyance/[environment].js
           test -f public/help/index.html
