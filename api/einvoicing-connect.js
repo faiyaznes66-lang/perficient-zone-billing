@@ -59,6 +59,8 @@ export default async function(req,res){
     const branchId=data.branchId;
     if(!companyId||!branchId) throw new Error("Complyance did not return the company and branch identifiers. Check the provider portal before retrying.");
     const mappingReady=data.readyForInvoicing===true;
+    const onboardingStatus=data.onboardingStatus||"draft";
+    const connectionStatus=onboardingStatus==="onboarded"?"connected":"pending_authorization";
     const metadata={
       sourceName,sourceVersion,branchName,companyId,sourceId:data.sourceId||null,branchId,
       userGivenBranchId:data.userGivenBranchId||null,
@@ -73,25 +75,27 @@ export default async function(req,res){
         (business_id,provider_name,provider_code,accreditation_number,status,external_account_ref,
          participant_id,environment,company_id,source_id,branch_id,source_name,source_version,
          branch_name,mapping_ready,onboarding_status,connected_at,last_checked_at,last_error,metadata,updated_at)
-       VALUES ($1,'Complyance','complyance','112219','connected',$2,$3,'sandbox',$4,$5,$6,$7,$8,$9,$10,$11,now(),now(),NULL,$12::jsonb,now())
+       VALUES ($1,'Complyance','complyance','112219',$12,$2,$3,'sandbox',$4,$5,$6,$7,$8,$9,$10,$11,now(),now(),NULL,$13::jsonb,now())
        ON CONFLICT (business_id) DO UPDATE SET
          provider_name='Complyance',provider_code='complyance',accreditation_number='112219',
-         status='connected',external_account_ref=EXCLUDED.external_account_ref,
+         status=EXCLUDED.status,external_account_ref=EXCLUDED.external_account_ref,
          participant_id=EXCLUDED.participant_id,environment='sandbox',
          company_id=EXCLUDED.company_id,source_id=EXCLUDED.source_id,branch_id=EXCLUDED.branch_id,
          source_name=EXCLUDED.source_name,source_version=EXCLUDED.source_version,
          branch_name=EXCLUDED.branch_name,mapping_ready=EXCLUDED.mapping_ready,
          onboarding_status=EXCLUDED.onboarding_status,connected_at=now(),last_checked_at=now(),
          last_error=NULL,metadata=EXCLUDED.metadata,updated_at=now()`,
-      [business.id,companyId,metadata.peppolParticipantId,companyId,metadata.sourceId,branchId,sourceName,sourceVersion,branchName,mappingReady,data.onboardingStatus||"draft",JSON.stringify(metadata)]
+      [business.id,companyId,metadata.peppolParticipantId,companyId,metadata.sourceId,branchId,sourceName,sourceVersion,branchName,mappingReady,onboardingStatus,connectionStatus,JSON.stringify(metadata)]
     );
     return res.json({
       ok:true,provider:"Complyance",environment,companyId,branchId,sourceName,sourceVersion,
       participantId:metadata.peppolParticipantId,mappingReady,
-      onboardingStatus:data.onboardingStatus||"draft",
-      message:mappingReady
-        ?"Complyance sandbox company is linked and its source reports ready for invoicing."
-        :"Complyance sandbox company is linked. Complete the Default GETS Mapping setup and pass the required Testbed cases in the Complyance Developer Portal before sending invoices."
+      onboardingStatus,
+      message:onboardingStatus!=="onboarded"
+        ?"The Complyance company record exists, but ASP onboarding is not complete. Check the FTA authorisation and Complyance onboarding status before proceeding."
+        :mappingReady
+          ?"Complyance sandbox company is onboarded and its source reports ready for invoicing."
+          :"Complyance sandbox company is onboarded. Complete the Default GETS Mapping setup and pass the required Testbed cases in the Complyance Developer Portal before sending invoices."
     });
   }catch(error){
     await db.query(
