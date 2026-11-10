@@ -1153,7 +1153,20 @@ function renderSettings(){
   $("#connect-complyance").onclick=async()=>{
     if(!$("#fta-authorized").checked){alert("First confirm that Complyance has been authorised as the ASP in the FTA portal for this TIN and contact email.");return}
     if(!confirm("Connect this legal entity to Complyance sandbox? This sends its TIN and authorised administrator details to the provider."))return;
-    try{const result=await api("/einvoicing-connect",{method:"POST",body:JSON.stringify({authorized_by_business:true})});await Promise.all([loadEinvoice(),loadEinvoiceInbox()]);alert(result.message);renderSettings()}catch(err){alert(err.message)}
+    try{
+      const form=$("#settings-form");
+      if(!form.reportValidity())return;
+      const settings=Object.fromEntries(new FormData(form).entries());
+      settings.vat_registered=settings.vat_registered==="true";
+      settings.default_tax_rate=Number(settings.default_tax_rate||0);
+      settings.hide_platform_branding=settings.hide_platform_branding==="on";
+      settings.einvoice_is_tax_group_member=settings.einvoice_is_tax_group_member==="on";
+      const saved=await api("/business",{method:"POST",body:JSON.stringify(settings)});
+      state.business=saved.business;
+      const result=await api("/einvoicing-connect",{method:"POST",body:JSON.stringify({authorized_by_business:true})});
+      await Promise.all([loadEinvoice(),loadEinvoiceInbox()]);
+      alert(result.message);renderSettings()
+    }catch(err){alert(err.message)}
   };
   const refresh=$("#refresh-complyance");
   if(refresh)refresh.onclick=async()=>{try{const result=await api("/einvoicing-sync",{method:"POST",body:JSON.stringify({})});await loadEinvoice();alert(result.message);renderSettings()}catch(err){alert(err.message)}};
