@@ -20,7 +20,7 @@ export default async function(req,res){
             c.electronic_address_scheme AS buyer_electronic_scheme,
             c.address_line1 AS buyer_address_line1,c.city AS buyer_city,
             c.emirate AS buyer_emirate,c.country AS buyer_country,
-            c.customer_type AS buyer_customer_type,c.einvoice_buyer_type
+            c.customer_type AS buyer_customer_type,c.einvoice_buyer_type AS customer_einvoice_buyer_type
      FROM invoices i
      JOIN businesses b ON b.id=i.business_id
      LEFT JOIN customers c ON c.id=i.customer_id AND c.business_id=b.id
@@ -30,7 +30,8 @@ export default async function(req,res){
   if(!r[0]) return res.status(404).json({error:"Invoice not found"});
   const x=r[0];
   const {rows:items}=await db.query("SELECT * FROM invoice_items WHERE invoice_id=$1 ORDER BY position",[x.id]);
-  const buyerType=x.einvoice_buyer_type|| (x.buyer_customer_type==="individual"?"consumer":"business");
+  const buyerType=x.customer_einvoice_buyer_type||(x.buyer_customer_type==="individual"?"consumer":x.einvoice_buyer_type||"business");
+  const buyerIsUAE=["United Arab Emirates","UAE","AE"].includes(String(x.buyer_country||""));
   if(buyerType==="consumer"){
     return res.json({
       applicable:false,can_submit:false,buyer_type:buyerType,
@@ -57,9 +58,9 @@ export default async function(req,res){
   requireField(present(x.seller_emirate),"Seller emirate/country subdivision");
   if(x.seller_vat_registered) requireField(present(x.seller_trn),"Seller VAT TRN");
   requireField(present(x.buyer_name||x.buyer_company||x.buyer_legal_name),"Buyer legal name");
-  requireField(isTin(x.buyer_tin),"Buyer 10-digit TIN");
-  requireField(present(x.buyer_electronic_address),"Buyer Peppol electronic address/endpoint");
-  requireField(present(x.buyer_electronic_scheme),"Buyer electronic address scheme");
+  if(buyerIsUAE) requireField(isTin(x.buyer_tin),"Buyer 10-digit TIN");
+  if(buyerIsUAE) requireField(present(x.buyer_electronic_address),"Buyer Peppol electronic address/endpoint");
+  if(buyerIsUAE) requireField(present(x.buyer_electronic_scheme),"Buyer electronic address scheme");
   requireField(present(x.buyer_address_line1),"Buyer address line 1");
   requireField(present(x.buyer_city),"Buyer city");
   requireField(present(x.buyer_emirate),"Buyer emirate/country subdivision");
@@ -73,7 +74,8 @@ export default async function(req,res){
     requireField(present(it.tax_category),`Line ${n}: tax category`);
   });
   if(x.seller_vat_registered&&x.currency!=="AED") requireField(Number(x.exchange_rate_to_aed)>0,"AED exchange rate for foreign-currency VAT reporting");
-  if(x.buyer_country==="United Arab Emirates"&&!present(x.buyer_electronic_address)) warnings.push("The buyer's electronic endpoint is missing; ask the ASP whether directory lookup is available using the buyer TIN.");
+  if(!buyerIsUAE) warnings.push("For an overseas buyer, the ASP must apply the prescribed foreign-buyer TIN/endpoint treatment. Peppol delivery may be unavailable; the seller still needs the required UAE reporting through the ASP.");
+  if(buyerIsUAE&&!present(x.buyer_electronic_address)) warnings.push("The buyer's electronic endpoint is missing; ask the ASP whether directory lookup is available using the buyer TIN.");
   if(x.status==="draft") warnings.push("This is still a draft invoice. It must be issued in your normal accounting workflow before transmission.");
   warnings.push("This is a local data-completeness check only. The selected ASP must perform the official PINT AE/schema validation and exchange/reporting steps.");
   return res.json({
