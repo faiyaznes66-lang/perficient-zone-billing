@@ -52,10 +52,12 @@ export default async function(req,res){
     trade_license:!!business.trade_license_number,
     seller_address:!!business.address&&!!business.city,
     trn:!business.vat_registered||!!business.trn,
+    scope_assessed:(business.einvoice_scope_status||"not_assessed")!=="not_assessed",
+    revenue_band_selected:(business.einvoice_revenue_band||"unknown")!=="unknown",
     customer_identifiers:!!(counts[0]&&Number(counts[0].customers_missing_identifiers)===0),
     asp_provider_connected:connected
   };
-  const required=["business_name","tin","trade_license","seller_address","trn"];
+  const required=["business_name","tin","trade_license","seller_address","trn","scope_assessed","revenue_band_selected"];
   const ready=required.every(k=>readiness[k]);
   res.json({
     connected,
@@ -69,7 +71,7 @@ export default async function(req,res){
       customers_missing_identifiers:Number(counts[0]?.customers_missing_identifiers||0)
     },
     readiness,
-    ready_for_provider_testing:ready,
+    seller_profile_complete:ready,
     message:connected
       ?"A UAE Accredited Service Provider connection is recorded. Provider transmission still depends on a configured and tested adapter."
       :"No verified UAE Accredited Service Provider connection is configured. No e-invoice transmission has been attempted."
