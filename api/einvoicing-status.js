@@ -86,9 +86,11 @@ export default async function(req,res){
     readiness,
     seller_profile_complete:ready,
     message:readyForInvoicing
-      ?"Complyance is linked and this source reports ready for invoicing. Sandbox validation is still required before any production use."
-      :connected
-        ?"Complyance is linked in sandbox. Complete the Default GETS Mapping and pass its Testbed cases before invoice submission."
-        :"Complyance is not linked. Complete the FTA ASP authorisation and connect the sandbox company."
+      ?"Complyance is onboarded and this source reports ready for invoicing. Sandbox validation is still required before any production use."
+      :conn&&conn.status==="pending_authorization"
+        ?"A Complyance company record exists, but ASP onboarding is not complete. Check the FTA authorisation and refresh the connection."
+        :connected
+          ?"Complyance is linked in sandbox. Complete the Default GETS Mapping and pass its Testbed cases before invoice submission."
+          :"Complyance is not linked. Complete the FTA ASP authorisation and connect the sandbox company."
   });
 }
