@@ -39,6 +39,11 @@ export default async function(req,res){
   }
 
   const body=req.body||{};
+  const einvoiceDocType=["tax_invoice","commercial_invoice"].includes(body.einvoice_document_type)?body.einvoice_document_type:(current.einvoice_document_type||"tax_invoice");
+  const einvoiceFlags=String(body.einvoice_transaction_type_code||current.einvoice_transaction_type_code||"00000000");
+  const paymentMeans=String(body.einvoice_payment_means_code||"");
+  if(!/^[01]{8}$/.test(einvoiceFlags)) return res.status(400).json({error:"UAE e-invoicing transaction flags must be eight 0/1 characters."});
+  if(paymentMeans&&!["1","10","20","21","30","49","54","55","68"].includes(paymentMeans)) return res.status(400).json({error:"Unsupported PINT AE payment means code."});
   if(!Array.isArray(body.items)||body.items.length===0) return res.status(400).json({error:"Add at least one invoice item"});
   const normalizedBody=business.vat_registered?body:{...body,items:body.items.map(it=>({...it,tax_category:"out_of_scope",tax_rate:0}))};
   const calc=calculateInvoice(normalizedBody);
@@ -55,13 +60,15 @@ export default async function(req,res){
     `UPDATE invoices SET customer_id=$1,invoice_number=$2,invoice_date=$3,due_date=$4,supply_date=$5,status=$6,
       currency=$7,reference=$8,notes=$9,terms=$10,tax_display=$11,vat_mode=$12,subtotal=$13,discount_amount=$14,
       taxable_amount=$15,vat_amount=$16,total=$17,amount_paid=$18,template_key=$19,invoice_format=$20,
-      discount_type=$21,discount_value=$22,share_enabled=$23,exchange_rate_to_aed=$24,vat_amount_aed=$25,language=$26,salesperson_name=$27,project_id=$28,updated_at=now()
-     WHERE id=$29 AND business_id=$30 RETURNING *`,
+      discount_type=$21,discount_value=$22,share_enabled=$23,exchange_rate_to_aed=$24,vat_amount_aed=$25,language=$26,salesperson_name=$27,project_id=$28,
+      einvoice_document_type=$29,einvoice_transaction_type_code=$30,einvoice_payment_means_code=$31,updated_at=now()
+     WHERE id=$32 AND business_id=$33 RETURNING *`,
     [body.customer_id||null,(body.invoice_number||current.invoice_number).trim(),body.invoice_date||current.invoice_date,
      body.due_date||null,body.supply_date||null,body.status||current.status,currency,body.reference||null,body.notes||null,
      body.terms||null,comp.tax_display,body.vat_mode||"exclusive",calc.subtotal,calc.discount_amount,calc.taxable_amount,
      calc.vat_amount,calc.total,Math.max(0,Number(body.amount_paid)||0),body.template_key||current.template_key||"classic",
-     comp.invoice_format,calc.discount_type,calc.discount_value,body.share_enabled!==false,rate,vatAed,body.language==="ar"?"ar":"en",(body.salesperson_name||"").trim()||null,body.project_id||null,id,business.id]);
+     comp.invoice_format,calc.discount_type,calc.discount_value,body.share_enabled!==false,rate,vatAed,body.language==="ar"?"ar":"en",(body.salesperson_name||"").trim()||null,body.project_id||null,
+     einvoiceDocType,einvoiceFlags,paymentMeans||null,id,business.id]);
 
   await db.query("DELETE FROM invoice_items WHERE invoice_id=$1",[id]);
   for(const it of calc.items){
