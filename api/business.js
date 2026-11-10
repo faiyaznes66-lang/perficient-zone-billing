@@ -22,7 +22,7 @@ export default async function(req,res){
   const legal=(b.legal_name||"").trim();
   if(!legal) return res.status(400).json({error:"Business name is required"});
   const tin=(b.tin_number||"").replace(/\s+/g,"");
-  if(tin && !/^\d{10}$/.test(tin)) return res.status(400).json({error:"UAE e-invoicing TIN must contain exactly 10 digits."});
+  if(tin && !/^1\d{9}$/.test(tin)) return res.status(400).json({error:"UAE e-invoicing TIN must contain exactly 10 digits."});
   const scopeStatus=["in_scope","excluded","voluntary","not_assessed"].includes(b.einvoice_scope_status)?b.einvoice_scope_status:"not_assessed";
   const revenueBand=["below_50m","at_or_above_50m","government","unknown"].includes(b.einvoice_revenue_band)?b.einvoice_revenue_band:"unknown";
 
