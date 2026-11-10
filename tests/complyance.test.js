@@ -44,6 +44,9 @@ test("maps a standard UAE B2B tax invoice to GETS/PINT AE",()=>{
   assert.equal(built.payload.parties.buyer.peppolId,"1000987654");
   assert.equal(built.payload.lineItems[0].taxCategory,"S");
   assert.equal(built.payload.lineItems[0].unitCode,"PCE");
+  assert.equal(built.payload.lineItems[0].price.baseQuantity,1);
+  assert.equal(built.payload.lineItems[0].extensions.ae_lineAmountInAED,2100);
+  assert.equal(built.payload.lineItems[0].extensions.ae_vatLineAmountInAED,100);
   assert.equal(built.payload.payment.paymentMeans[0].paymentMeansCode,"CREDIT_TRANSFER");
   assert.equal(built.payload.totals.totalAmountIncludingTax,2100);
 });
@@ -74,4 +77,17 @@ test("maps common UAE emirates, units, payment codes and Peppol IDs",()=>{
   assert.equal(unitCode("kg"),"KGM");
   assert.equal(paymentMeansCode("30"),"CREDIT_TRANSFER");
   assert.equal(rawParticipantId("0235:1234567890"),"1234567890");
+});
+
+test("supports a non-VAT seller using its FTA TIN and out-of-scope lines",()=>{
+  const nonVatBusiness={...business,vat_registered:false,trn:""};
+  const nonVatInvoice={...invoice,total:2000,taxable_amount:2000,vat_amount:0,vat_amount_aed:0};
+  const nonVatItems=[{...items[0],tax_category:"out_of_scope",tax_rate:0,line_subtotal:2000,line_tax:0,line_total:2000}];
+  const built=buildUaeInvoice({invoice:nonVatInvoice,business:nonVatBusiness,customer,items:nonVatItems,connection});
+  assert.deepEqual(built.errors,[]);
+  assert.equal(built.payload.parties.seller.taxIds[0].value,"1234567890");
+  assert.ok(built.modifiers.includes("out_of_scope"));
+  assert.equal(built.payload.lineItems[0].taxCategory,"O");
+  assert.equal(built.payload.lineItems[0].taxRate,undefined);
+  assert.equal(built.payload.lineItems[0].extensions.ae_lineAmountInAED,2000);
 });
