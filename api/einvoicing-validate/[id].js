@@ -49,7 +49,7 @@ export default async function(req,res){
   requireField(present(x.invoice_date),"Invoice date");
   const transactionFlags=String(x.einvoice_transaction_type_code||"00000000");
   const deemedSupply=transactionFlags[1]==="1";
-  requireField(present(x.due_date),"Payment due date (for due-on-receipt, use the invoice date)");
+  if(!deemedSupply) requireField(present(x.due_date),"Payment due date (for due-on-receipt, use the invoice date)");
   requireField(present(x.currency),"Invoice currency");
   requireField(/^[01]{8}$/.test(transactionFlags),"8-position invoice transaction type code");
   if(!deemedSupply) requireField(present(x.einvoice_payment_means_code),"Payment means type code (UNCL 4461)");
