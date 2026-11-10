@@ -91,3 +91,22 @@ test("supports a non-VAT seller using its FTA TIN and out-of-scope lines",()=>{
   assert.equal(built.payload.lineItems[0].taxRate,undefined);
   assert.equal(built.payload.lineItems[0].extensions.ae_lineAmountInAED,2000);
 });
+
+test("requires an FTA TIN for a non-VAT seller",()=>{
+  const result=buildUaeInvoice({
+    invoice:{...invoice,total:2000,taxable_amount:2000,vat_amount:0},
+    business:{...business,vat_registered:false,tin_number:"",trn:""},
+    customer,
+    items:[{...items[0],tax_category:"out_of_scope",tax_rate:0,line_subtotal:2000,line_tax:0,line_total:2000}],
+    connection
+  });
+  assert.ok(result.errors.some(x=>x.includes("10-digit FTA TIN")));
+});
+
+test("requires a due date for a non-deemed tax invoice",()=>{
+  const result=buildUaeInvoice({
+    invoice:{...invoice,due_date:""},
+    business,customer,items,connection
+  });
+  assert.ok(result.errors.some(x=>x.includes("Payment due date")));
+});
