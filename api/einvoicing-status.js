@@ -37,9 +37,9 @@ export default async function(req,res){
   const conn=c[0]||null;
   const {rows:counts}=await db.query(
     `SELECT
-       COUNT(*) FILTER (WHERE customer_type='business' OR einvoice_buyer_type='government')::int AS business_customers,
+       COUNT(*) FILTER (WHERE einvoice_buyer_type IN ('business','government'))::int AS business_customers,
        COUNT(*) FILTER (
-         WHERE (customer_type='business' OR einvoice_buyer_type='government')
+         WHERE einvoice_buyer_type IN ('business','government')
            AND (COALESCE(tin_number,'')='' OR COALESCE(electronic_address,'')='')
        )::int AS customers_missing_identifiers
      FROM customers WHERE business_id=$1`,[business.id]);
