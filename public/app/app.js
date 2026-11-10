@@ -1065,7 +1065,7 @@ function renderBilling(){
 function renderSettings(){
   const b=state.business,e=state.einvoice||{},rd=e.readiness||{},tl=e.timeline||null,cs=e.customer_summary||{},cc=e.connection||{},inbox=state.einvoiceInbox||[];
   $("#content").innerHTML=`<div class="page-head"><div><h1>Business settings</h1><p>Seller, VAT, bank and document defaults.</p></div></div>
-  <div class="setup-card" style="margin:0"><div style="margin-bottom:22px"><strong>Business logo</strong><p class="muted">PNG, JPEG or WebP, maximum 2 MB.</p>${b.logo_url?`<img src="${esc(b.logo_url)}" style="max-width:160px;max-height:70px;display:block;margin-bottom:10px`:""}<form id="logo-form"><input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp"><button class="btn btn-outline" type="submit">Upload logo</button></form></div>
+  <div class="setup-card" style="margin:0"><div style="margin-bottom:22px"><strong>Business logo</strong><p class="muted">PNG, JPEG or WebP, maximum 2 MB.</p>${b.logo_url?`<img src="${esc(b.logo_url)}" style="max-width:160px;max-height:70px;display:block;margin-bottom:10px">`:""}<form id="logo-form"><input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp"><button class="btn btn-outline" type="submit">Upload logo</button></form></div>
   <form id="settings-form" class="form-grid">
     <label class="span2">Legal business name<input name="legal_name" value="${esc(b.legal_name)}" required></label>
     <label>Trade name<input name="trade_name" value="${esc(b.trade_name||"")}"></label><label>Emirate<input name="emirate" value="${esc(b.emirate||"")}"></label>
