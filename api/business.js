@@ -35,7 +35,10 @@ export default async function(req,res){
     accent(b.invoice_accent),font(b.invoice_font),b.invoice_footer||null,!!b.hide_platform_branding,
     tin||null,(b.trade_license_number||"").trim()||null,(b.trade_license_authority||"").trim()||null,
     scopeStatus,revenueBand,!!b.einvoice_is_tax_group_member,(b.einvoice_branch_trade_license_number||"").trim()||null,
-    (b.city||"").trim()||null,["TL","EID","PAS","CD"].includes(b.legal_registration_id_type)?b.legal_registration_id_type:"TL"
+    (b.city||"").trim()||null,["TL","EID","PAS","CD"].includes(b.legal_registration_id_type)?b.legal_registration_id_type:"TL",
+    (b.einvoice_contact_name||"").trim()||null,(b.einvoice_contact_email||"").trim().toLowerCase()||null,
+    (b.einvoice_contact_mobile||"").trim()||null,(b.einvoice_beneficiary_id||"").trim()||null,
+    (b.einvoice_principal_trn||"").replace(/\\s+/g,"")||null
   ];
 
   const {rows}=await db.query(
@@ -43,8 +46,9 @@ export default async function(req,res){
       (owner_user_id,legal_name,trade_name,country,emirate,address,phone,email,website,trn,vat_registered,default_tax_rate,
        currency,invoice_prefix,quote_prefix,default_language,bank_name,account_name,iban,swift,payment_instructions,
        invoice_accent,invoice_font,invoice_footer,hide_platform_branding,tin_number,trade_license_number,trade_license_authority,
-       einvoice_scope_status,einvoice_revenue_band,einvoice_is_tax_group_member,einvoice_branch_trade_license_number,city,legal_registration_id_type)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
+       einvoice_scope_status,einvoice_revenue_band,einvoice_is_tax_group_member,einvoice_branch_trade_license_number,city,legal_registration_id_type,
+       einvoice_contact_name,einvoice_contact_email,einvoice_contact_mobile,einvoice_beneficiary_id,einvoice_principal_trn)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
      ON CONFLICT (owner_user_id) DO UPDATE SET
       legal_name=EXCLUDED.legal_name,trade_name=EXCLUDED.trade_name,country=EXCLUDED.country,
       emirate=EXCLUDED.emirate,address=EXCLUDED.address,phone=EXCLUDED.phone,email=EXCLUDED.email,
@@ -60,7 +64,10 @@ export default async function(req,res){
       trade_license_authority=EXCLUDED.trade_license_authority,einvoice_scope_status=EXCLUDED.einvoice_scope_status,
       einvoice_revenue_band=EXCLUDED.einvoice_revenue_band,einvoice_is_tax_group_member=EXCLUDED.einvoice_is_tax_group_member,
       einvoice_branch_trade_license_number=EXCLUDED.einvoice_branch_trade_license_number,
-      city=EXCLUDED.city,legal_registration_id_type=EXCLUDED.legal_registration_id_type,updated_at=now()
+      city=EXCLUDED.city,legal_registration_id_type=EXCLUDED.legal_registration_id_type,
+      einvoice_contact_name=EXCLUDED.einvoice_contact_name,einvoice_contact_email=EXCLUDED.einvoice_contact_email,
+      einvoice_contact_mobile=EXCLUDED.einvoice_contact_mobile,einvoice_beneficiary_id=EXCLUDED.einvoice_beneficiary_id,
+      einvoice_principal_trn=EXCLUDED.einvoice_principal_trn,updated_at=now()
      RETURNING *`,vals);
 
   await db.query(
