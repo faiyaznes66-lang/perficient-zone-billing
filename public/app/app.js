@@ -1183,7 +1183,7 @@ function showInvoiceEditor(existing=null){
       <div class="product-picker"><select id="product-picker"><option value="">Add from Products & Services</option>${state.products.map(p=>`<option value="${p.id}">${esc(p.name)} · ${money(p.rate,d.currency)}</option>`).join("")}</select><button class="btn btn-outline" id="add-product-line">Add selected</button></div>
       <div class="items-box"><div class="item-head phase2"><span>Item / description</span><span>Qty</span><span>Rate</span><span>Disc %</span><span>VAT</span><span></span></div><div id="items"></div></div>
 
-      <div class="editor-actions"><button class="btn btn-outline" id="add-item">+ Custom item</button><div class="right">${existing?`<button class="btn btn-outline" id="record-payment">Record payment</button><button class="btn btn-outline" id="writeoff-invoice">Write off</button>`:""}<button class="btn btn-outline" id="print-invoice">Print</button><button class="btn btn-primary" id="save-invoice">${existing?"Save changes":"Create invoice"}</button></div></div>
+      <div class="editor-actions"><button class="btn btn-outline" id="add-item">+ Custom item</button><div class="right">${existing?`<button class="btn btn-outline" id="record-payment">Record payment</button><button class="btn btn-outline" id="writeoff-invoice">Write off</button><button class="btn btn-outline" id="validate-einvoice">Check e-Invoice</button>`:""}<button class="btn btn-outline" id="print-invoice">Print</button><button class="btn btn-primary" id="save-invoice">${existing?"Save changes":"Create invoice"}</button></div></div>
       <div class="totals-editor">
         <div class="row"><span>Discount type</span><select id="f-discount-type"><option value="fixed" ${d.discount_type!=="percent"?"selected":""}>Fixed amount</option><option value="percent" ${d.discount_type==="percent"?"selected":""}>Percentage</option></select></div>
         <div class="row"><span>Discount value</span><input id="f-discount" type="number" step=".01" min="0" value="${Number(d.discount_value||0)}"></div>
@@ -1195,6 +1195,16 @@ function showInvoiceEditor(existing=null){
     <aside class="preview-wrap"><div id="preview" class="invoice-page"></div></aside>
   </div>`;
   $("#back-invoices").onclick=()=>navigate("invoices");
+  const checkEinvoice=$("#validate-einvoice");
+  if(checkEinvoice)checkEinvoice.onclick=async()=>{
+    try{
+      const result=await api("/einvoicing-validate/"+existing.id);
+      const lines=[result.message||""];
+      if(result.errors&&result.errors.length)lines.push("\nMissing fields:\n• "+result.errors.join("\n• "));
+      if(result.warnings&&result.warnings.length)lines.push("\nNotes:\n• "+result.warnings.join("\n• "));
+      alert(lines.filter(Boolean).join("\n"));
+    }catch(err){alert(err.message)}
+  };
   $$("#template-bar .template-chip").forEach(b=>b.onclick=()=>{state.template=b.dataset.template;d.template_key=state.template;$$(".template-chip").forEach(x=>x.classList.toggle("active",x===b));renderPreview()});
   bindEditorFields();renderItemRows();renderPreview();if(existing)bindShareActions(existing);
 }
