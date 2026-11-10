@@ -1210,7 +1210,7 @@ function showInvoiceEditor(existing=null){
         <div class="editor-grid" style="padding:14px">
           <label class="editor-field">e-Invoice document type<select id="f-ei-doc-type">
             <option value="tax_invoice" ${d.einvoice_document_type!=="commercial_invoice"?"selected":""}>Tax invoice</option>
-            <option value="commercial_invoice" ${d.einvoice_document_type==="commercial_invoice"?"selected":""}>Commercial invoice</option>
+            
           </select></label>
           <label class="editor-field">Payment means type code<select id="f-ei-payment-means">
             <option value="">Select payment means</option>
@@ -1249,7 +1249,7 @@ function showInvoiceEditor(existing=null){
       <div class="product-picker"><select id="product-picker"><option value="">Add from Products & Services</option>${state.products.map(p=>`<option value="${p.id}">${esc(p.name)} · ${money(p.rate,d.currency)}</option>`).join("")}</select><button class="btn btn-outline" id="add-product-line">Add selected</button></div>
       <div class="items-box"><div class="item-head phase2"><span>Item / description</span><span>Qty</span><span>Rate</span><span>Disc %</span><span>VAT</span><span></span></div><div id="items"></div></div>
 
-      <div class="editor-actions"><button class="btn btn-outline" id="add-item">+ Custom item</button><div class="right">${existing?`<button class="btn btn-outline" id="record-payment">Record payment</button><button class="btn btn-outline" id="writeoff-invoice">Write off</button><button class="btn btn-outline" id="validate-einvoice">Check e-Invoice</button>`:""}<button class="btn btn-outline" id="print-invoice">Print</button><button class="btn btn-primary" id="save-invoice">${existing?"Save changes":"Create invoice"}</button></div></div>
+      <div class="editor-actions"><button class="btn btn-outline" id="add-item">+ Custom item</button><div class="right">${existing?`<button class="btn btn-outline" id="record-payment">Record payment</button><button class="btn btn-outline" id="writeoff-invoice">Write off</button><button class="btn btn-outline" id="validate-einvoice">Check e-Invoice</button><button class="btn btn-outline" id="submit-einvoice">Send to Complyance</button><button class="btn btn-outline" id="refresh-einvoice-status">Refresh e-Invoice status</button>`:""}<button class="btn btn-outline" id="print-invoice">Print</button><button class="btn btn-primary" id="save-invoice">${existing?"Save changes":"Create invoice"}</button></div></div>
       <div class="totals-editor">
         <div class="row"><span>Discount type</span><select id="f-discount-type"><option value="fixed" ${d.discount_type!=="percent"?"selected":""}>Fixed amount</option><option value="percent" ${d.discount_type==="percent"?"selected":""}>Percentage</option></select></div>
         <div class="row"><span>Discount value</span><input id="f-discount" type="number" step=".01" min="0" value="${Number(d.discount_value||0)}"></div>
@@ -1263,13 +1263,34 @@ function showInvoiceEditor(existing=null){
   $("#back-invoices").onclick=()=>navigate("invoices");
   const checkEinvoice=$("#validate-einvoice");
   if(checkEinvoice)checkEinvoice.onclick=async()=>{
+    checkEinvoice.disabled=true;
     try{
       const result=await api("/einvoicing-validate/"+existing.id);
       const lines=[result.message||""];
-      if(result.errors&&result.errors.length)lines.push("\nMissing fields:\n• "+result.errors.join("\n• "));
+      if(result.provider_validation)lines.push("Provider validation: "+result.provider_validation);
+      if(result.errors&&result.errors.length)lines.push("\nIssues:\n• "+result.errors.map(x=>typeof x==="string"?x:(x.message||x.path||JSON.stringify(x))).join("\n• "));
       if(result.warnings&&result.warnings.length)lines.push("\nNotes:\n• "+result.warnings.join("\n• "));
       alert(lines.filter(Boolean).join("\n"));
-    }catch(err){alert(err.message)}
+    }catch(err){alert(err.message)}finally{checkEinvoice.disabled=false}
+  };
+  const submitEinvoice=$("#submit-einvoice");
+  if(submitEinvoice)submitEinvoice.onclick=async()=>{
+    if(!confirm("Send this issued invoice to Complyance? It will first be validated in the configured environment, then submitted for electronic processing. Do not use this for a draft invoice."))return;
+    submitEinvoice.disabled=true;submitEinvoice.textContent="Submitting...";
+    try{
+      const result=await api("/einvoicing-submit/"+existing.id,{method:"POST",body:JSON.stringify({confirm_submit:true})});
+      alert(result.message+"\nDocument ID: "+result.documentId+"\nStatus: "+result.status);
+      await openInvoice(existing.id);
+    }catch(err){alert(err.message)}finally{submitEinvoice.disabled=false;submitEinvoice.textContent="Send to Complyance"}
+  };
+  const refreshEinvoice=$("#refresh-einvoice-status");
+  if(refreshEinvoice)refreshEinvoice.onclick=async()=>{
+    refreshEinvoice.disabled=true;
+    try{
+      const result=await api("/einvoicing-document-status/"+existing.id,{method:"POST",body:JSON.stringify({})});
+      alert(result.message+"\nStatus: "+result.status);
+      await openInvoice(existing.id);
+    }catch(err){alert(err.message)}finally{refreshEinvoice.disabled=false}
   };
   $$("#template-bar .template-chip").forEach(b=>b.onclick=()=>{state.template=b.dataset.template;d.template_key=state.template;$$(".template-chip").forEach(x=>x.classList.toggle("active",x===b));renderPreview()});
   bindEditorFields();renderItemRows();renderPreview();if(existing)bindShareActions(existing);
@@ -1327,7 +1348,7 @@ function bindEditorFields(){
 function renderItemRows(){
   const d=state.editing;
   $("#items").innerHTML=d.items.map((it,i)=>`<div class="item-row phase2" data-i="${i}">
-    <div class="item-name-wrap"><input data-k="item_name" value="${esc(it.item_name)}" placeholder="Item"><textarea data-k="description" placeholder="Description">${esc(it.description||"")}</textarea></div>
+    <div class="item-name-wrap"><input data-k="item_name" value="${esc(it.item_name)}" placeholder="Item"><textarea data-k="description" placeholder="Description">${esc(it.description||"")}</textarea><input data-k="unit" value="${esc(it.unit||"")}" placeholder="Unit code (PCE, HUR, DAY, KGM)"></div>
     <input data-k="quantity" type="number" step=".001" min="0" value="${Number(it.quantity||0)}">
     <input data-k="rate" type="number" step=".01" min="0" value="${Number(it.rate||0)}">
     <input data-k="discount_percent" type="number" step=".01" min="0" max="100" value="${Number(it.discount_percent||0)}">
