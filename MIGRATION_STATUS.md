@@ -52,19 +52,30 @@ Imported:
 - [x] Draft PR #1 opened and intentionally left unmerged until Hostinger acceptance testing passes
 
 
-## UAE e-Invoicing foundation (Hostinger migration branch)
-- [x] Added migration 030 for seller TIN/trade licence/scope/revenue profile
-- [x] Added ASP connection metadata and encrypted-credential columns (credentials are not stored in plaintext)
-- [x] Added immutable e-invoice document snapshots and inbound e-invoice inbox tables
-- [x] Added credit-note and credit-note-line data model for electronic corrections
-- [x] Added customer buyer classification (B2B, B2G, B2C, overseas business) and endpoint scheme
-- [x] Added invoice PINT AE document type, eight transaction flags and payment means code
-- [x] Added seller and buyer readiness checks in Settings
-- [x] Added invoice-level e-invoice preflight validation (does not transmit)
-- [x] Added guardrails so draft/cancelled invoices cannot be submitted
-- [x] Latest Hostinger migration branch CI passed: dependency installation and JavaScript syntax checks successful
-- [ ] Apply migration 030 to Supabase before deploying this branch (not yet applied; the database connection was unavailable during this attempt)
-- [ ] Select a Ministry of Finance-accredited ASP and obtain its API documentation/test credentials
-- [ ] Implement and test the selected provider adapter for outbound exchange, inbound receipt and FTA reporting
-- [ ] Complete credit-note workflow, webhooks, retries and end-to-end certification tests
-- [ ] Enable production transmission only after ASP sandbox acceptance
+## UAE e-Invoicing — Complyance sandbox connector
+- [x] Migration 030: seller TIN/trade licence/scope/revenue profile, outbound document snapshots, inbound inbox and credit-note foundation
+- [x] Migration 031: per-business Complyance company/source/branch IDs, mapping readiness, contact details and signed webhook idempotency store
+- [x] Complyance ISV Connect API sandbox onboarding endpoint with FTA authorisation confirmation and existing-source recovery
+- [x] Seller settings UI for FTA contact details, beneficiary ID and disclosed-agent principal TRN
+- [x] Customer buyer registration type and endpoint details for PINT AE
+- [x] Invoice editor PINT AE fields and unit-code input
+- [x] GETS/PINT AE payload builder for the initial supported invoice subset
+- [x] Local preflight plus Complyance sandbox `purpose=validate`
+- [x] Guarded invoice submission with immutable payload snapshot and duplicate/unknown-outcome protection
+- [x] Complyance document status retrieval
+- [x] HMAC SHA-256 signed sandbox/production purchase webhook receiver with event deduplication
+- [x] Incoming purchase invoice inbox and full-document retrieval endpoint
+- [x] Business Settings and invoice editor controls for connect, validate, submit, refresh and inbox
+- [x] Help Center Complyance onboarding and webhook tutorials
+- [ ] Apply migration 030 to Supabase (attempted; Supabase connection timed out)
+- [ ] Apply migration 031 to Supabase after 030
+- [ ] Obtain Complyance ISV sandbox API key with read/write permission and add it to Hostinger as `COMPLYANCE_SANDBOX_API_KEY`
+- [ ] Complete FTA ASP authorisation for the Perficient legal entity using the exact contact email stored in Business Settings
+- [ ] Connect the company in sandbox and complete the Complyance Default GETS Mapping Testbed cases until `readyForInvoicing=true`
+- [ ] Configure the signed sandbox webhook and add `COMPLYANCE_WEBHOOK_SECRET_SANDBOX` in Hostinger
+- [ ] Run end-to-end sandbox tests with real business/customer identifiers and provider-approved test cases
+- [ ] Extend payload coverage for non-VAT sellers, discounts, zero-rated/exempt supplies, reverse charge, exports/e-commerce, overseas buyers and credit notes
+- [ ] Obtain production key/webhook secret and complete provider/FTA go-live checks before production use
+
+### Initial connector scope and safety limits
+The current payload builder intentionally supports only UAE B2B/B2G, VAT-registered seller tax invoices with standard-rated VAT, no invoice or line discounts, UAE buyer addresses and supported unit/payment codes. Other cases are blocked rather than guessed. The code does not mark a document accepted until Complyance status retrieval reports a terminal result. Production credentials and production transmission remain disabled until sandbox and legal onboarding are complete.
