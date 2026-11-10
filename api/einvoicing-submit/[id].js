@@ -1,5 +1,5 @@
 import { db } from "hatchable";
-import { buildUaeInvoice,makeUnifyEnvelope,complyanceRequest,payloadHash } from "lib/complyance.js";
+import { buildUaeInvoice,makeUnifyEnvelope,complyanceRequest,payloadHash,apiKeyFor } from "lib/complyance.js";
 
 export const access="user";
 export const methods=["POST"];
@@ -35,6 +35,8 @@ export default async function(req,res){
   const connection=connections[0];
   if(!connection||connection.status!=="connected") return res.status(409).json({error:"Connect Complyance in Business Settings first.",code:"EINVOICE_PROVIDER_REQUIRED"});
   if(!connection.mapping_ready) return res.status(409).json({error:"Complyance source mapping is not ready. Complete and pass the Default GETS Mapping Testbed cases before submitting.",code:"COMPLYANCE_MAPPING_NOT_READY"});
+  const environment=connection.environment||"sandbox";
+  if(!apiKeyFor(environment)) return res.status(503).json({error:"Configure the Complyance "+environment+" API key in Hostinger server environment variables before submitting.",code:"COMPLYANCE_API_KEY_MISSING"});
   const buyerType=invoice.customer_einvoice_buyer_type||(invoice.buyer_customer_type==="individual"?"consumer":"business");
   const customer=invoice.buyer_id?{
     id:invoice.buyer_id,name:invoice.buyer_name,company:invoice.buyer_company,legal_name:invoice.buyer_legal_name,
@@ -50,7 +52,6 @@ export default async function(req,res){
     return res.status(422).json({error:"Complete the UAE PINT AE fields before submission.",code:"EINVOICE_LOCAL_VALIDATION_FAILED",errors:built.errors});
   }
 
-  const environment=connection.environment||"sandbox";
   const source=connection.source_name+":"+connection.source_version;
   const envelope=makeUnifyEnvelope({environment,source,payload:built.payload,modifiers:built.modifiers,purpose:"invoicing"});
   const hash=payloadHash(envelope);
@@ -124,7 +125,7 @@ export default async function(req,res){
     return res.json({ok:true,submitted:true,environment,documentId,status:providerState,isTerminal:!!data.isTerminal,compliance:data.compliance||null,message:"Invoice accepted by Complyance for asynchronous processing. Refresh its status to confirm final FTA and buyer-ASP acceptance."});
   }catch(error){
     const providerErrors=errorsFrom(error.provider);
-    const knownRejection=error.status===400||error.status===401||error.status===403||error.status===404||error.status===412||error.status===422;
+    const knownRejection=error.status===400||error.status===401||error.status===403||error.status===404||error.status===412||error.status===422||error.status===429;
     const status=knownRejection?"submission_failed":"submission_unknown";
     const message=String(error.message||"Complyance submission failed").slice(0,2000);
     await db.query(
