@@ -1056,9 +1056,9 @@ function renderBilling(){
   $$(".choose-plan").forEach(b=>b.onclick=async()=>{try{await api("/billing-checkout",{method:"POST",body:JSON.stringify({plan:b.dataset.plan})})}catch(err){alert(err.message)}});
 }
 function renderSettings(){
-  const b=state.business,e=state.einvoice||{},rd=e.readiness||{},tl=e.timeline||null,cs=e.customer_summary||{};
+  const b=state.business,e=state.einvoice||{},rd=e.readiness||{},tl=e.timeline||null,cs=e.customer_summary||{},cc=e.connection||{},inbox=state.einvoiceInbox||[];
   $("#content").innerHTML=`<div class="page-head"><div><h1>Business settings</h1><p>Seller, VAT, bank and document defaults.</p></div></div>
-  <div class="setup-card" style="margin:0"><div style="margin-bottom:22px"><strong>Business logo</strong><p class="muted">PNG, JPEG or WebP, maximum 2 MB.</p>${b.logo_url?`<img src="${esc(b.logo_url)}" style="max-width:160px;max-height:70px;display:block;margin-bottom:10px">`:""}<form id="logo-form"><input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp"><button class="btn btn-outline" type="submit">Upload logo</button></form></div>
+  <div class="setup-card" style="margin:0"><div style="margin-bottom:22px"><strong>Business logo</strong><p class="muted">PNG, JPEG or WebP, maximum 2 MB.</p>${b.logo_url?`<img src="${esc(b.logo_url)}" style="max-width:160px;max-height:70px;display:block;margin-bottom:10px`:""}<form id="logo-form"><input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp"><button class="btn btn-outline" type="submit">Upload logo</button></form></div>
   <form id="settings-form" class="form-grid">
     <label class="span2">Legal business name<input name="legal_name" value="${esc(b.legal_name)}" required></label>
     <label>Trade name<input name="trade_name" value="${esc(b.trade_name||"")}"></label><label>Emirate<input name="emirate" value="${esc(b.emirate||"")}"></label>
@@ -1077,6 +1077,10 @@ function renderSettings(){
       <option value="PAS" ${b.legal_registration_id_type==="PAS"?"selected":""}>Passport (PAS)</option>
       <option value="CD" ${b.legal_registration_id_type==="CD"?"selected":""}>Cabinet Decision (CD)</option>
     </select></label>
+    <div class="span2" style="border-top:1px solid var(--border);padding-top:16px"><strong>Complyance ASP onboarding contact</strong><p class="muted">Use the administrator email that was used when this legal entity authorised Complyance as its ASP in the FTA portal. Do not use a different email.</p></div>
+    <label>FTA authorised administrator email<input name="einvoice_contact_email" type="email" value="${esc(b.einvoice_contact_email||"")}"></label>
+    <label>Authorised contact person name<input name="einvoice_contact_name" value="${esc(b.einvoice_contact_name||"")}"></label>
+    <label>Contact mobile<input name="einvoice_contact_mobile" value="${esc(b.einvoice_contact_mobile||"")}" placeholder="+9715XXXXXXXX"></label>
     <label>e-Invoicing scope assessment<select name="einvoice_scope_status">
       <option value="not_assessed" ${(b.einvoice_scope_status||"not_assessed")==="not_assessed"?"selected":""}>Not assessed</option>
       <option value="in_scope" ${b.einvoice_scope_status==="in_scope"?"selected":""}>In scope</option>
@@ -1091,6 +1095,8 @@ function renderSettings(){
     </select></label>
     <label class="span2" style="display:flex;flex-direction:row;align-items:center;gap:9px"><input name="einvoice_is_tax_group_member" type="checkbox" style="width:auto" ${b.einvoice_is_tax_group_member?"checked":""}> This legal entity is a member of a UAE VAT Tax Group</label>
     <label>Branch trade licence number (if applicable)<input name="einvoice_branch_trade_license_number" value="${esc(b.einvoice_branch_trade_license_number||"")}"></label>
+    <label>Free Trade Zone beneficiary ID<input name="einvoice_beneficiary_id" value="${esc(b.einvoice_beneficiary_id||"")}" placeholder="Only when applicable"></label>
+    <label>Disclosed agent principal TRN<input name="einvoice_principal_trn" value="${esc(b.einvoice_principal_trn||"")}" placeholder="Only when applicable"></label>
     <label>Default VAT %<input name="default_tax_rate" type="number" step=".01" value="${esc(b.default_tax_rate)}"></label>
     <label>Currency<input name="currency" value="${esc(b.currency)}"></label><label>Invoice prefix<input name="invoice_prefix" value="${esc(b.invoice_prefix)}"></label>
     <label>Quote prefix<input name="quote_prefix" value="${esc(b.quote_prefix||"QUO-")}"></label><label>Default language<select name="default_language"><option value="en" ${b.default_language!=="ar"?"selected":""}>English</option><option value="ar" ${b.default_language==="ar"?"selected":""}>Arabic</option></select></label>
@@ -1106,7 +1112,7 @@ function renderSettings(){
     <div class="span2"><button class="btn btn-primary">Save changes</button></div>
   </form></div>
   <div class="panel"><div class="panel-head"><h3>UAE e-Invoicing readiness</h3><a href="https://mof.gov.ae/en/about-us/initiatives/einvoicing/einvoicing-accredited-service-providers-asps/" target="_blank" rel="noopener">Official accredited ASP list ↗</a></div><div style="padding:20px">
-    <p><strong>ASP connection:</strong> ${e.connected?"Connected":"Not connected"}</p>
+    <p><strong>ASP connection:</strong> ${e.connected?"Complyance linked":"Not connected"}</p>
     <p class="muted">${esc(e.message||"No UAE Accredited Service Provider is connected.")}</p>
     <div class="readiness-grid">
       <span>${rd.business_name?"✓":"○"} Legal business name</span>
@@ -1116,16 +1122,35 @@ function renderSettings(){
       <span>${rd.trn?"✓":"○"} VAT TRN (if registered)</span>
       <span>${rd.scope_assessed?"✓":"○"} Scope assessed</span>
       <span>${rd.revenue_band_selected?"✓":"○"} Revenue band selected</span>
-      <span>${rd.asp_provider_connected?"✓":"○"} Accredited ASP</span>
+      <span>${rd.asp_provider_connected?"✓":"○"} Accredited ASP linked</span>
+      <span>${rd.asp_mapping_ready?"✓":"○"} Provider mapping ready</span>
       <span>Business customers: ${Number(cs.business_customers||0)}</span>
-      <span>Customers missing TIN/endpoint: ${Number(cs.customers_missing_identifiers||0)}</span>
+      <span>Customers missing TIN/legal ID: ${Number(cs.customers_missing_identifiers||0)}</span>
     </div>
     ${tl ? '<p style="margin-top:14px"><strong>Phase:</strong> '+esc(tl.phase)+' · ASP appointment deadline: '+esc(tl.appointment_deadline)+' · Implementation: '+esc(tl.implementation_date)+'</p>'+(tl.appointment_overdue?'<p style="color:#a33b32;font-weight:700">The ASP appointment deadline for this revenue band has passed. Contact an accredited provider promptly.</p>':'') : '<p class="muted" style="margin-top:14px">Select the annual revenue band above to display the applicable implementation timeline.</p>'}
     ${e.tax_group_member ? '<p class="muted">Tax Group note: only qualifying transactions between members of the same Tax Group receive the temporary 24-month exclusion from 1 January 2027; third-party transactions remain subject to the applicable rules.</p>' : ''}
-    <p class="muted" style="margin-top:12px">This panel checks profile readiness. Live exchange and FTA reporting remain disabled until an ASP is selected, a provider-specific adapter is configured and end-to-end testing passes.</p>
-  </div></div>`;
-  $("#settings-form").onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target).entries());body.vat_registered=body.vat_registered==="true";body.default_tax_rate=Number(body.default_tax_rate);body.hide_platform_branding=body.hide_platform_branding==="on";body.einvoice_is_tax_group_member=body.einvoice_is_tax_group_member==="on";try{const out=await api("/business",{method:"POST",body:JSON.stringify(body)});state.business=out.business;await Promise.all([loadPlan(),loadEinvoice()]);alert(out.notice||"Settings saved");renderSettings()}catch(err){alert(err.message)}};
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
+      <strong>Complyance Electronics L.L.C · Accredited ASP 112219</strong>
+      <p class="muted">Sandbox onboarding uses your real 10-digit TIN and the exact administrator email that authorised Complyance in the FTA portal. The Complyance ISV sandbox API key must be configured in Hostinger server environment variables.</p>
+      ${cc.company_id?`<p><strong>Environment:</strong> ${esc(cc.environment||"sandbox")} · <strong>Company ID:</strong> ${esc(cc.company_id)} · <strong>Branch:</strong> ${esc(cc.branch_name||"")}</p><p><strong>Source:</strong> ${esc((cc.source_name||"")+" :"+(cc.source_version||""))}</p><p><strong>Mapping:</strong> ${cc.mapping_ready?"Ready for sandbox invoice validation":"Action required — Default GETS Mapping Testbed cases"}</p>`:''}
+      ${cc.last_error?`<p style="color:#a33b32">${esc(cc.last_error)}</p>`:''}
+      <label style="display:flex;gap:8px;align-items:flex-start;margin:14px 0"><input type="checkbox" id="fta-authorized" style="width:auto;margin-top:4px"> <span>I confirm this legal entity has authorised Complyance as its ASP in the FTA portal using the TIN and administrator email entered above.</span></label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn btn-primary" id="connect-complyance">Connect Complyance Sandbox</button>${e.connected?'<button type="button" class="btn btn-outline" id="refresh-complyance">Refresh mapping status</button>':''}</div>
+      <p class="muted" style="margin-top:12px">Sandbox webhook URL: ${esc((window.location.origin||"")+"/api/webhooks/complyance/sandbox")}. Register it in the Complyance Developer Portal with HMAC SHA-256 signing and the two purchase invoice events.</p>
+    </div>
+    <p class="muted" style="margin-top:12px">Production transmission remains disabled until the Complyance sandbox tests, FTA ASP authorisation, production onboarding and end-to-end checks are complete.</p>
+  </div></div>
+  <div class="panel"><div class="panel-head"><h3>Incoming supplier e-Invoices</h3><span class="muted">${inbox.length} received</span></div><div class="table-wrap"><table><thead><tr><th>Supplier</th><th>Invoice #</th><th>Date</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>${inbox.length?inbox.map(x=>`<tr><td>${esc(x.sender_name||"Supplier")}</td><td>${esc(x.document_number||"—")}</td><td>${esc(x.issue_date||"—")}</td><td>${money(x.total||0,x.currency||"AED")}</td><td>${esc(x.status||"received")}</td><td><button class="btn btn-outline btn-sm" data-inbox-id="${x.id}">Fetch details</button></td></tr>`).join(""):'<tr><td colspan="6" class="muted">No incoming supplier e-Invoices have been received yet. Configure the signed Complyance sandbox webhook to populate this inbox.</td></tr>'}</tbody></table></div></div>`;
+  $("#settings-form").onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target).entries());body.vat_registered=body.vat_registered==="true";body.default_tax_rate=Number(body.default_tax_rate);body.hide_platform_branding=body.hide_platform_branding==="on";body.einvoice_is_tax_group_member=body.einvoice_is_tax_group_member==="on";try{const out=await api("/business",{method:"POST",body:JSON.stringify(body)});state.business=out.business;await Promise.all([loadPlan(),loadEinvoice(),loadEinvoiceInbox()]);alert(out.notice||"Settings saved");renderSettings()}catch(err){alert(err.message)}};
   $("#logo-form").onsubmit=async e=>{e.preventDefault();const file=$("#logo-file").files[0];if(!file){alert("Choose a logo first.");return}const fd=new FormData();fd.append("logo",file);try{const res=await fetch(API+"/business-logo",{method:"POST",body:fd});const data=await res.json();if(!res.ok)throw new Error(data.error||"Upload failed");state.business=data.business;alert("Logo uploaded.");renderSettings()}catch(err){alert(err.message)}};
+  $("#connect-complyance").onclick=async()=>{
+    if(!$("#fta-authorized").checked){alert("First confirm that Complyance has been authorised as the ASP in the FTA portal for this TIN and contact email.");return}
+    if(!confirm("Connect this legal entity to Complyance sandbox? This sends its TIN and authorised administrator details to the provider."))return;
+    try{const result=await api("/einvoicing-connect",{method:"POST",body:JSON.stringify({authorized_by_business:true})});await Promise.all([loadEinvoice(),loadEinvoiceInbox()]);alert(result.message);renderSettings()}catch(err){alert(err.message)}
+  };
+  const refresh=$("#refresh-complyance");
+  if(refresh)refresh.onclick=async()=>{try{const result=await api("/einvoicing-sync",{method:"POST",body:JSON.stringify({})});await loadEinvoice();alert(result.message);renderSettings()}catch(err){alert(err.message)}};
+  $$("[data-inbox-id]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{const result=await api("/einvoicing-inbox/"+button.dataset.inboxId);alert("Fetched supplier invoice details for "+(result.document?.documentNumber||"this document")+".");await loadEinvoiceInbox();renderSettings()}catch(err){alert(err.message)}finally{button.disabled=false}});
 }
 
 function blankDraft(){
