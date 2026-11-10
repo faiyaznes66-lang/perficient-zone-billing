@@ -119,6 +119,14 @@ async function connectCompany(business) {
        source_name,source_version,branch_name,mapping_ready,onboarding_status,external_account_ref,connected_at,
        last_checked_at,last_error,metadata)
      VALUES ($1,'Complyance','complyance',$2,'sandbox',$3,$4,$5,$6,$7,$8,$9,$10,$11,$4,now(),now(),NULL,$12)
+     ON CONFLICT (business_id) DO UPDATE SET
+       provider_name=EXCLUDED.provider_name,provider_code=EXCLUDED.provider_code,status=EXCLUDED.status,
+       environment=EXCLUDED.environment,participant_id=EXCLUDED.participant_id,company_id=EXCLUDED.company_id,
+       source_id=EXCLUDED.source_id,branch_id=EXCLUDED.branch_id,source_name=EXCLUDED.source_name,
+       source_version=EXCLUDED.source_version,branch_name=EXCLUDED.branch_name,mapping_ready=EXCLUDED.mapping_ready,
+       onboarding_status=EXCLUDED.onboarding_status,external_account_ref=EXCLUDED.external_account_ref,
+       connected_at=EXCLUDED.connected_at,last_checked_at=EXCLUDED.last_checked_at,last_error=NULL,
+       metadata=EXCLUDED.metadata,updated_at=now()
      RETURNING *`,
     [
       business.id, status, data.peppolParticipantId || (data.tin ? "0235:" + data.tin : "0235:" + tin),
