@@ -1075,7 +1075,7 @@ function renderSettings(){
     <label>Website<input name="website" value="${esc(b.website||"")}"></label><label>VAT TRN<input name="trn" value="${esc(b.trn||"")}"></label>
     <label>VAT registered?<select name="vat_registered"><option value="false" ${!b.vat_registered?"selected":""}>No</option><option value="true" ${b.vat_registered?"selected":""}>Yes</option></select></label>
     <div class="span2" style="border-top:1px solid var(--border);padding-top:16px"><strong>UAE e-Invoicing seller profile</strong><p class="muted">Enter your FTA Tax Identification Number (TIN), trade licence details and the revenue band from your latest accounting period. The TIN is separate from the VAT TRN field.</p></div>
-    <label>Tax Identification Number (TIN)<input name="tin_number" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" value="${esc(b.tin_number||"")}" placeholder="10 digits"></label>
+    <label>Tax Identification Number (TIN)<input name="tin_number" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" value="${esc(b.tin_number||"")}" placeholder="10 digits (first 10 of CT TRN)"></label>
     <label>Trade licence number<input name="trade_license_number" value="${esc(b.trade_license_number||"")}"></label>
     <label>Trade licence issuing authority<input name="trade_license_authority" value="${esc(b.trade_license_authority||"")}" placeholder="e.g. Dubai DET"></label>
     <label>Legal registration ID type<select name="legal_registration_id_type">
