@@ -1170,7 +1170,18 @@ function renderSettings(){
   };
   const refresh=$("#refresh-complyance");
   if(refresh)refresh.onclick=async()=>{try{const result=await api("/einvoicing-sync",{method:"POST",body:JSON.stringify({})});await loadEinvoice();alert(result.message);renderSettings()}catch(err){alert(err.message)}};
-  $$("[data-inbox-id]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{const result=await api("/einvoicing-inbox/"+button.dataset.inboxId);alert("Fetched supplier invoice details for "+(result.document?.documentNumber||"this document")+".");await loadEinvoiceInbox();renderSettings()}catch(err){alert(err.message)}finally{button.disabled=false}});
+  $$("[data-inbox-id]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{
+    const result=await api("/einvoicing-inbox/"+button.dataset.inboxId);
+    const doc=result.document||{},invoice=doc.invoice||{},header=invoice.header||{},totals=invoice.totals||{};
+    const supplier=invoice.parties?.seller?.name||doc.supplierName||"Supplier";
+    const number=header.documentNumber||doc.documentNumber||"—";
+    const amount=totals.totalAmountIncludingTax??doc.totalAmount??"—";
+    const currency=header.currency||doc.currency||"AED";
+    const lines=["Supplier: "+supplier,"Invoice: "+number,"Issue date: "+(header.issueDate||doc.issueDate||"—"),"Total: "+amount+" "+currency,"Provider state: "+(doc.state||"received")];
+    if(Array.isArray(doc.errors)&&doc.errors.length)lines.push("Provider issues: "+doc.errors.map(x=>x.message||x.code).join("; "));
+    alert(lines.join("\n"));
+    await loadEinvoiceInbox();renderSettings()
+  }catch(err){alert(err.message)}finally{button.disabled=false}});
 }
 
 function blankDraft(){
