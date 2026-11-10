@@ -18,6 +18,8 @@ export default async function(req,res){
             c.legal_name AS buyer_legal_name,c.trn AS buyer_trn,c.tin_number AS buyer_tin,
             c.electronic_address AS buyer_electronic_address,
             c.electronic_address_scheme AS buyer_electronic_scheme,
+            c.buyer_id_value AS buyer_legal_registration_id,
+            c.buyer_id_authority AS buyer_legal_registration_authority,
             c.address_line1 AS buyer_address_line1,c.city AS buyer_city,
             c.emirate AS buyer_emirate,c.country AS buyer_country,
             c.customer_type AS buyer_customer_type,c.einvoice_buyer_type AS customer_einvoice_buyer_type
@@ -32,6 +34,7 @@ export default async function(req,res){
   const {rows:items}=await db.query("SELECT * FROM invoice_items WHERE invoice_id=$1 ORDER BY position",[x.id]);
   const buyerType=x.customer_einvoice_buyer_type||(x.buyer_customer_type==="individual"?"consumer":x.einvoice_buyer_type||"business");
   const buyerIsUAE=["United Arab Emirates","UAE","AE"].includes(String(x.buyer_country||""));
+  const isTaxInvoice=x.einvoice_document_type!=="commercial_invoice";
   if(buyerType==="consumer"){
     return res.json({
       applicable:false,can_submit:false,buyer_type:buyerType,
@@ -46,8 +49,7 @@ export default async function(req,res){
   requireField(present(x.invoice_date),"Invoice date");
   const transactionFlags=String(x.einvoice_transaction_type_code||"00000000");
   const deemedSupply=transactionFlags[1]==="1";
-  const amountDue=Math.max(0,Number(x.total||0)-Number(x.amount_paid||0)-Number(x.bad_debt_amount||0));
-  if(amountDue>0&&!deemedSupply) requireField(present(x.due_date),"Payment due date (for due-on-receipt, use the invoice date)");
+  requireField(present(x.due_date),"Payment due date (for due-on-receipt, use the invoice date)");
   requireField(present(x.currency),"Invoice currency");
   requireField(/^[01]{8}$/.test(transactionFlags),"8-position invoice transaction type code");
   if(!deemedSupply) requireField(present(x.einvoice_payment_means_code),"Payment means type code (UNCL 4461)");
@@ -60,7 +62,11 @@ export default async function(req,res){
   requireField(present(x.seller_emirate),"Seller emirate/country subdivision");
   if(x.seller_vat_registered) requireField(present(x.seller_trn),"Seller VAT TRN");
   requireField(present(x.buyer_name||x.buyer_company||x.buyer_legal_name),"Buyer legal name");
-  if(buyerIsUAE) requireField(isTin(x.buyer_tin),"Buyer 10-digit TIN");
+  if(buyerIsUAE&&isTaxInvoice) requireField(isTin(x.buyer_tin),"Buyer 10-digit TIN");
+  if(buyerIsUAE&&!isTaxInvoice){
+    requireField(present(x.buyer_legal_registration_id),"Buyer legal registration identifier");
+    requireField(present(x.buyer_legal_registration_authority),"Buyer legal registration identifier type/authority");
+  }
   if(buyerIsUAE) requireField(present(x.buyer_electronic_address),"Buyer Peppol electronic address/endpoint");
   if(buyerIsUAE) requireField(present(x.buyer_electronic_scheme),"Buyer electronic address scheme");
   requireField(present(x.buyer_address_line1),"Buyer address line 1");
@@ -73,7 +79,7 @@ export default async function(req,res){
     requireField(present(it.item_name),`Line ${n}: item name`);
     requireField(Number(it.quantity)>0,`Line ${n}: positive quantity`);
     requireField(present(it.unit),`Line ${n}: unit of measure`);
-    requireField(present(it.tax_category),`Line ${n}: tax category`);
+    if(isTaxInvoice) requireField(present(it.tax_category),`Line ${n}: tax category`);
   });
   if(x.seller_vat_registered&&x.currency!=="AED") requireField(Number(x.exchange_rate_to_aed)>0,"AED exchange rate for foreign-currency VAT reporting");
   if(!buyerIsUAE) warnings.push("For an overseas buyer, the ASP must apply the prescribed foreign-buyer TIN/endpoint treatment. Peppol delivery may be unavailable; the seller still needs the required UAE reporting through the ASP.");
