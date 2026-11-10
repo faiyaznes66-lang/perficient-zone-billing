@@ -35,11 +35,11 @@ export default async function(req,res){
       work_phone,mobile,customer_language,other_details,address_line1,address_line2,city,emirate,postal_code,country,
       contact_persons,custom_fields,remarks,tin_number,buyer_id_value,buyer_id_authority,legal_name,
       location_code_type,location_code_value,electronic_address,payment_terms_days,portal_enabled,
-      customer_owner_user_id,customer_owner_email,electronic_address_scheme,einvoice_buyer_type
+      customer_owner_user_id,customer_owner_email,electronic_address_scheme,einvoice_buyer_type,buyer_registration_type
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,
       $10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,
-      $26::jsonb,$27::jsonb,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41
+      $26::jsonb,$27::jsonb,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42
     ) RETURNING *`,
     [business.id,display,company||null,c.email||null,c.phone||null,billing||null,c.trn||null,business.currency||"AED",c.notes||null,
      cleanType(c.customer_type),c.salutation||null,first||null,last||null,display,c.display_name_ar||null,
@@ -48,7 +48,8 @@ export default async function(req,res){
      JSON.stringify(safeArray(c.contact_persons)),JSON.stringify(safeArray(c.custom_fields)),c.remarks||null,c.tin_number||null,
      c.buyer_id_value||null,c.buyer_id_authority||null,legal||null,c.location_code_type||null,c.location_code_value||null,
      c.electronic_address||null,paymentDays(c.payment_terms_days),c.portal_enabled!==false,req.user.id,req.user.email||null,
-     c.electronic_address_scheme||"0235",buyerType(c.einvoice_buyer_type,cleanType(c.customer_type))]
+     c.electronic_address_scheme||"0235",buyerType(c.einvoice_buyer_type,cleanType(c.customer_type)),
+     ["TL","EID","PAS","CD"].includes(c.buyer_registration_type)?c.buyer_registration_type:"TL"]
   );
 
   res.status(201).json({customer:rows[0]});
