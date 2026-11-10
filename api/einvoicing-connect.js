@@ -11,7 +11,7 @@ export default async function(req,res){
   const body=req.body||{};
   if(body.authorized_by_business!==true) return res.status(400).json({error:"Confirm that this business has authorised Complyance as its ASP in the FTA portal before onboarding."});
   if(!/^1\d{9}$/.test(String(business.tin_number||""))) return res.status(400).json({error:"Enter the business's valid 10-digit FTA TIN in Settings."});
-  if(!business.trade_license_number||!business.trade_license_authority||!business.city||!business.emirate||!business.address) return res.status(400).json({error:"Complete the seller legal registration and UAE address details in Settings."});
+  if(!business.legal_name||!business.trade_license_number||!business.trade_license_authority||!business.city||!business.emirate||!business.address) return res.status(400).json({error:"Complete the seller legal registration and UAE address details in Settings."});
   if(!["in_scope","voluntary"].includes(business.einvoice_scope_status)) return res.status(400).json({error:"Complete the UAE e-invoicing scope assessment before connecting an ASP."});
   if(!["below_50m","at_or_above_50m","government"].includes(business.einvoice_revenue_band)) return res.status(400).json({error:"Select the correct latest annual revenue band before connecting an ASP."});
   const contactEmail=String(business.einvoice_contact_email||"").trim().toLowerCase();
