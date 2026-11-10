@@ -15,6 +15,8 @@ export default async function(req,res){
     const response=await complyanceRequest(path,{environment:conn.environment||"sandbox",connect:true});
     const data=response.data||response;
     const mappingReady=data.readyForInvoicing===true;
+    const onboardingStatus=data.onboardingStatus||conn.onboarding_status||"draft";
+    const connectionStatus=onboardingStatus==="onboarded"?"connected":"pending_authorization";
     const metadata={
       ...(conn.metadata||{}),
       companyId:data.companyId||conn.company_id,
@@ -33,9 +35,9 @@ export default async function(req,res){
         mapping_ready=$6,onboarding_status=$7,metadata=$8::jsonb,
         last_checked_at=now(),last_error=NULL,updated_at=now()
        WHERE business_id=$1`,
-      [b[0].id,metadata.companyId,metadata.sourceId,metadata.branchId,metadata.peppolParticipantId,mappingReady,data.onboardingStatus||conn.onboarding_status||"draft",JSON.stringify(metadata)]
+      [b[0].id,connectionStatus,metadata.companyId,metadata.sourceId,metadata.branchId,metadata.peppolParticipantId,mappingReady,onboardingStatus,JSON.stringify(metadata)]
     );
-    return res.json({ok:true,mappingReady,onboardingStatus:data.onboardingStatus||conn.onboarding_status||"draft",mappingReadiness:metadata.mappingReadiness,message:mappingReady?"Complyance source is ready for invoice submissions.":"Complyance source is linked but its mapping is not yet ready. Complete the Default GETS Mapping Testbed cases in the Developer Portal."});
+    return res.json({ok:true,mappingReady,onboardingStatus,mappingReadiness:metadata.mappingReadiness,message:onboardingStatus!=="onboarded"?"Complyance onboarding is not complete. Verify the FTA ASP authorisation and provider onboarding status.":mappingReady?"Complyance source is ready for sandbox invoice validation.":"Complyance source is linked but its mapping is not yet ready. Complete the Default GETS Mapping Testbed cases in the Developer Portal."});
   }catch(error){
     await db.query("UPDATE einvoice_connections SET last_error=$2,last_checked_at=now(),updated_at=now() WHERE business_id=$1",[b[0].id,String(error.message||"Refresh failed").slice(0,1000)]).catch(()=>{});
     return res.status(error.status||502).json({error:error.message||"Could not refresh Complyance status.",code:error.code||"COMPLYANCE_REFRESH_FAILED"});
