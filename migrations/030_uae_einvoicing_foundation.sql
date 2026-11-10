@@ -5,6 +5,8 @@ ALTER TABLE businesses
   ADD COLUMN IF NOT EXISTS tin_number TEXT,
   ADD COLUMN IF NOT EXISTS trade_license_number TEXT,
   ADD COLUMN IF NOT EXISTS trade_license_authority TEXT,
+  ADD COLUMN IF NOT EXISTS city TEXT,
+  ADD COLUMN IF NOT EXISTS legal_registration_id_type TEXT NOT NULL DEFAULT 'TL',
   ADD COLUMN IF NOT EXISTS einvoice_scope_status TEXT NOT NULL DEFAULT 'not_assessed',
   ADD COLUMN IF NOT EXISTS einvoice_revenue_band TEXT NOT NULL DEFAULT 'unknown',
   ADD COLUMN IF NOT EXISTS einvoice_is_tax_group_member BOOLEAN NOT NULL DEFAULT false,
