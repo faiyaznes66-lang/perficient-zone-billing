@@ -28,7 +28,7 @@ function timeline(band){
 export default async function(req,res){
   const {rows:b}=await db.query(
     `SELECT id,legal_name,trn,tin_number,vat_registered,address,emirate,trade_license_number,
-            trade_license_authority,einvoice_scope_status,einvoice_revenue_band,
+            trade_license_authority,city,einvoice_scope_status,einvoice_revenue_band,
             einvoice_is_tax_group_member,einvoice_branch_trade_license_number
      FROM businesses WHERE owner_user_id=$1 LIMIT 1`,[req.user.id]);
   if(!b[0]) return res.status(400).json({error:"Business not found"});
@@ -45,11 +45,12 @@ export default async function(req,res){
      FROM customers WHERE business_id=$1`,[business.id]);
   const connected=!!(conn&&conn.status==="connected"&&conn.provider_code&&conn.accreditation_number);
   const due=timeline(business.einvoice_revenue_band);
+  if(due) due.appointment_overdue=new Date().toISOString().slice(0,10)>due.appointment_deadline;
   const readiness={
     business_name:!!business.legal_name,
     tin:/^\d{10}$/.test(String(business.tin_number||"")),
     trade_license:!!business.trade_license_number,
-    seller_address:!!business.address,
+    seller_address:!!business.address&&!!business.city,
     trn:!business.vat_registered||!!business.trn,
     customer_identifiers:!!(counts[0]&&Number(counts[0].customers_missing_identifiers)===0),
     asp_provider_connected:connected
