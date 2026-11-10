@@ -1197,7 +1197,7 @@ function showInvoiceEditor(existing=null){
   applyCompliance(d);
   const eiFlagLabels=["Free Trade Zone","Deemed Supply","Margin Scheme","Summary Invoice","Continuous Supply","Disclosed Agent Billing","Supply through e-commerce","Exports"];
   const eiFlags=String(d.einvoice_transaction_type_code||"00000000").padEnd(8,"0").slice(0,8);
-  $("#content").innerHTML=`<div class="page-head"><div><h1>${existing?"Edit invoice":"Create invoice"}</h1><p>${state.business.vat_registered?"VAT-registered businesses use compliance-aware tax display rules.":"Choose how tax information is displayed for non-VAT documents."}</p></div><button class="btn btn-outline" id="back-invoices">Back to invoices</button></div>
+  $("#content").innerHTML=`<div class="page-head"><div><h1>${existing?"Edit invoice":"Create invoice"}</h1><p>${state.business.vat_registered?"VAT-registered businesses use compliance-aware tax display rules.":"Choose how tax information is displayed for non-VAT documents."}</p>${existing&&existing.einvoice_status&&existing.einvoice_status!=="not_prepared"?`<p class="muted">e-Invoice status: <strong>${esc(existing.einvoice_status)}</strong>${existing.einvoice_provider_document_id?" · Provider document ID: "+esc(existing.einvoice_provider_document_id):""}</p>`:""}</div><button class="btn btn-outline" id="back-invoices">Back to invoices</button></div>
   <div class="template-bar" id="template-bar">${[["classic","Classic"],["modern","Modern"],["minimal","Minimal"],["corporate","Corporate"],["elegant","Elegant"],["professional","Professional"],["compact","Compact"],["bold","Bold"]].map(([k,n])=>`<button class="template-chip ${state.template===k?"active":""}" data-template="${k}">${n}</button>`).join("")}</div>
   <div class="invoice-editor">
     <section class="editor-panel">
@@ -1222,7 +1222,7 @@ function showInvoiceEditor(existing=null){
       <details class="customer-details" open style="margin:14px 0"><summary>UAE e-Invoicing (PINT AE)</summary>
         <div class="editor-grid" style="padding:14px">
           <label class="editor-field">e-Invoice document type<select id="f-ei-doc-type">
-            <option value="tax_invoice" ${d.einvoice_document_type!=="commercial_invoice"?"selected":""}>Tax invoice</option>
+            <option value="tax_invoice" selected>Tax invoice</option>
             
           </select></label>
           <label class="editor-field">Payment means type code<select id="f-ei-payment-means">
