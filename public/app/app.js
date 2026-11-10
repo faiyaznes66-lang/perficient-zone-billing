@@ -1,4 +1,5 @@
-const API=(window.__HATCHABLE__&&window.__HATCHABLE__.api)||"/api";
+const API=(window.__APP_CONFIG__&&window.__APP_CONFIG__.api)||"/api";
+const authClient=window.supabase.createClient(window.__APP_CONFIG__.supabaseUrl,window.__APP_CONFIG__.supabaseAnonKey);
 const state={
   user:null,business:null,customers:[],invoices:[],products:[],quotes:[],payments:[],expenses:[],recurring:[],challans:[],timeEntries:[],projects:[],refunds:[],bankCharges:[],badDebts:[],reviews:[],
   dashboard:null,dashboardYear:new Date().getFullYear(),report:null,planState:null,einvoice:null,view:"dashboard",template:"classic",editing:null,quoteEditing:null
@@ -12,7 +13,11 @@ const plusDays=(d,n)=>{const x=new Date(d+"T12:00:00");x.setDate(x.getDate()+n);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 
 async function api(path,opts={}){
-  const res=await fetch(API+path,{...opts,headers:{"Content-Type":"application/json",...(opts.headers||{})}});
+  const {data:{session}}=await authClient.auth.getSession();
+  const headers={...(opts.headers||{})};
+  if(session&&session.access_token)headers.Authorization="Bearer "+session.access_token;
+  if(!(opts.body instanceof FormData))headers["Content-Type"]=headers["Content-Type"]||"application/json";
+  const res=await fetch(API+path,{...opts,headers});
   if(res.status===401){location.href="/login?next="+encodeURIComponent("/app/");throw new Error("Sign in required")}
   const data=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(data.error||"Something went wrong");
@@ -20,10 +25,10 @@ async function api(path,opts={}){
 }
 
 async function boot(){
-  const s=await hatchable.auth.getSession().catch(()=>null);
-  if(!s||!s.user){location.replace("/login?next=/app/");return}
-  state.user=s.user;$("#user-email").textContent=s.user.email||"Signed in";
-  $("#signout").onclick=async()=>{await hatchable.auth.signOut();location.href="/"};
+  const {data:{session}}=await authClient.auth.getSession();
+  if(!session||!session.user){location.replace("/login?next=/app/");return}
+  state.user=session.user;$("#user-email").textContent=session.user.email||"Signed in";
+  $("#signout").onclick=async()=>{await authClient.auth.signOut();location.href="/"};
   $("#menu-btn").onclick=()=>$(".sidebar").classList.toggle("open");
   $("#new-invoice-top").onclick=()=>showInvoiceEditor();
   $$("#side-nav button[data-view]").forEach(b=>b.onclick=()=>navigate(b.dataset.view));
@@ -50,8 +55,9 @@ async function loadReviews(){state.reviews=(await api("/customer-reviews")).revi
 async function loadDashboard(year=state.dashboardYear){state.dashboardYear=Number(year)||new Date().getFullYear();state.dashboard=await api("/dashboard?year="+encodeURIComponent(state.dashboardYear))}
 async function loadReport(){state.report=await api("/reports")}
 async function loadPlan(){state.planState=await api("/plan")}
-async function loadEinvoice(){state.einvoice=await api("/einvoicing-status")}
-async function loadAll(){await Promise.all([loadCustomers(),loadInvoices(),loadProducts(),loadQuotes(),loadPayments(),loadExpenses(),loadRecurring(),loadChallans(),loadTimeEntries(),loadProjects(),loadRefunds(),loadBankCharges(),loadBadDebts(),loadReviews(),loadDashboard(),loadReport(),loadPlan(),loadEinvoice()])}
+async function loadEinvoice(){try{state.einvoice=await api("/einvoicing-status")}catch(err){state.einvoice={connected:false,message:"UAE e-Invoicing database migrations must be applied before the provider connection can be used."}}}
+async function loadEinvoiceInbox(){try{const result=await api("/einvoicing-inbox");state.einvoiceInbox=result.inbox||[]}catch(err){state.einvoiceInbox=[]}}
+async function loadAll(){await Promise.all([loadCustomers(),loadInvoices(),loadProducts(),loadQuotes(),loadPayments(),loadExpenses(),loadRecurring(),loadChallans(),loadTimeEntries(),loadProjects(),loadRefunds(),loadBankCharges(),loadBadDebts(),loadReviews(),loadDashboard(),loadReport(),loadPlan(),loadEinvoice(),loadEinvoiceInbox()])}
 
 function navActive(view){
   state.view=view;
@@ -254,7 +260,7 @@ async function openCustomerDetail(id,initialTab="overview"){
           <section class="customer-detail-card"><h3>Address</h3><div class="customer-address-block">${esc(c.billing_address||[c.address_line1,c.address_line2,c.city,c.emirate,c.postal_code,c.country].filter(Boolean).join(", ")||"No address saved")}</div></section>
           <section class="customer-detail-card"><h3>Tax & electronic invoicing</h3><div class="customer-info-grid">
             ${info("TRN",c.trn)}${info("TIN",c.tin_number)}${info("Buyer ID",c.buyer_id_value)}${info("Buyer ID authority",c.buyer_id_authority)}
-            ${info("Location code type",c.location_code_type)}${info("Location code",c.location_code_value)}${info("Electronic address",c.electronic_address)}
+            ${info("Location code type",c.location_code_type)}${info("Location code",c.location_code_value)}${info("Electronic address",c.electronic_address)}${info("e-Invoicing buyer type",c.einvoice_buyer_type)}
           </div></section>
           <section class="customer-detail-card"><h3>Remarks</h3><p class="customer-long-text">${esc(c.remarks||c.notes||"No remarks added.")}</p></section>
         </div>`;
@@ -270,7 +276,7 @@ async function openCustomerDetail(id,initialTab="overview"){
         body=`<div class="customer-statement-toolbar"><div><strong>Customer Statement</strong><span>Issued invoices and recorded payments</span></div><div><button class="btn btn-outline" id="customer-statement-csv">Download CSV</button><button class="btn btn-outline" id="customer-statement-print">Print / PDF</button></div></div>
         ${data.statement.length?`<div class="table-wrap"><table class="data-table customer-statement-table"><thead><tr><th>Date</th><th>Document</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>${data.statement.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.document)}</td><td>${esc(x.description)}</td><td class="money">${x.debit?money(x.debit,x.currency||cur):"—"}</td><td class="money">${x.credit?money(x.credit,x.currency||cur):"—"}</td><td class="money"><strong>${money(x.balance,x.currency||cur)}</strong></td></tr>`).join("")}</tbody></table></div>`:empty("No issued invoices or payments available for a statement.")}`;
       }else if(tab==="documents"){
-        body=`<div class="customer-doc-tab-head"><div><strong>Documents</strong><span>Maximum 3 files, 10 MB each.</span></div><button class="btn btn-outline" id="customer-manage-docs">Manage documents</button></div>${data.documents.length?`<div class="customer-document-grid">${data.documents.map(x=>`<a class="customer-document-card" href="${esc(x.storage_url)}" target="_blank" rel="noopener"><strong>${esc(x.file_name)}</strong><span>${esc(x.content_type||"Document")}</span><small>${(Number(x.size_bytes||0)/1024/1024).toFixed(2)} MB · ${esc(new Date(x.created_at).toLocaleDateString())}</small></a>`).join("")}</div>`:empty("No documents uploaded for this customer.")}`;
+        body=`<div class="customer-doc-tab-head"><div><strong>Documents</strong><span>Maximum 3 files, 10 MB each. Files open through your authenticated session.</span></div><button class="btn btn-outline" id="customer-manage-docs">Manage documents</button></div>${data.documents.length?`<div class="customer-document-grid">${data.documents.map(x=>`<button type="button" class="customer-document-card customer-doc-open" data-id="${x.id}" data-name="${esc(x.file_name)}"><strong>${esc(x.file_name)}</strong><span>${esc(x.content_type||"Document")}</span><small>${(Number(x.size_bytes||0)/1024/1024).toFixed(2)} MB · ${esc(new Date(x.created_at).toLocaleDateString())}</small></button>`).join("")}</div>`:empty("No documents uploaded for this customer.")}`;
       }else if(tab==="contacts"){
         body=`<div class="customer-contacts-head"><div><strong>Contact Persons</strong><span>Saved contacts for this customer</span></div><button class="btn btn-outline" id="customer-edit-contacts">Edit contacts</button></div>${data.contacts.length?`<div class="customer-contact-grid">${data.contacts.map(x=>`<article class="customer-contact-card"><div class="customer-contact-avatar">${esc(String(x.name||"?").slice(0,1).toUpperCase())}</div><div><h4>${esc(x.name||"Unnamed contact")}</h4><p>${esc(x.designation||"")}</p><p>${esc(x.email||"")}</p><p>${esc(x.phone||"")}</p></div></article>`).join("")}</div>`:empty("No contact persons saved.")}`;
       }else if(tab==="reviews"){
@@ -304,6 +310,14 @@ async function openCustomerDetail(id,initialTab="overview"){
       $$(".customer-invoice-link").forEach(row=>row.onclick=()=>openInvoice(row.dataset.id));
 
       const manage=$("#customer-manage-docs");if(manage)manage.onclick=()=>showCustomerModal(c);
+      $(".customer-doc-open").forEach(b=>b.onclick=async()=>{try{
+        const {data:{session}}=await authClient.auth.getSession();
+        const res=await fetch(API+"/customer-documents/"+c.id+"?document_id="+encodeURIComponent(b.dataset.id),{headers:{Authorization:"Bearer "+session.access_token}});
+        if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.error||"Could not open document")}
+        const blob=await res.blob(),url=URL.createObjectURL(blob),w=window.open(url,"_blank");
+        if(!w){const a=document.createElement("a");a.href=url;a.download=b.dataset.name||"document";a.click()}
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+      }catch(err){alert(err.message)}});
       const editContacts=$("#customer-edit-contacts");if(editContacts)editContacts.onclick=()=>showCustomerModal(c);
       const addReview=$("#customer-add-review");if(addReview)addReview.onclick=()=>showCustomerReviewModal(c.id,async()=>openCustomerDetail(c.id,"reviews"));
 
@@ -360,17 +374,15 @@ async function uploadCustomerDocuments(customerId,files){
   if(files.length>3)throw new Error("You can upload a maximum of 3 customer documents");
   for(const f of files)if(f.size>10*1024*1024)throw new Error(f.name+" exceeds the 10 MB limit");
   const fd=new FormData();[...files].forEach(f=>fd.append("documents",f));
-  const res=await fetch(API+"/customer-documents/"+customerId,{method:"POST",body:fd});
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok)throw new Error(data.error||"Document upload failed");
+  await api("/customer-documents/"+customerId,{method:"POST",body:fd});
 }
 function showCustomerModal(existing=null){
   const c=existing||{
     customer_type:"business",salutation:"",first_name:"",last_name:"",company:"",display_name_primary:"",display_name_ar:"",
     email:"",phone:"",work_phone:"",mobile:"",customer_language:"en",other_details:"",address_line1:"",address_line2:"",
     city:"",emirate:"Dubai",postal_code:"",country:"United Arab Emirates",contact_persons:[],custom_fields:[],remarks:"",
-    trn:"",tin_number:"",buyer_id_value:"",buyer_id_authority:"",legal_name:"",location_code_type:"",location_code_value:"",
-    electronic_address:"",payment_terms_days:0,portal_enabled:true,customer_owner_email:state.user&&state.user.email||"",notes:""
+    trn:"",tin_number:"",buyer_id_value:"",buyer_id_authority:"",buyer_registration_type:"TL",legal_name:"",location_code_type:"",location_code_value:"",
+    electronic_address:"",electronic_address_scheme:"0235",einvoice_buyer_type:"business",payment_terms_days:0,portal_enabled:true,customer_owner_email:state.user&&state.user.email||"",notes:""
   };
   const contacts=Array.isArray(c.contact_persons)?JSON.parse(JSON.stringify(c.contact_persons)):[];
   const custom=Array.isArray(c.custom_fields)?JSON.parse(JSON.stringify(c.custom_fields)):[];
@@ -446,10 +458,23 @@ function showCustomerModal(existing=null){
           <label>TIN Number<input name="tin_number" value="${esc(c.tin_number||"")}"></label>
           <label>Buyer ID Value<input name="buyer_id_value" value="${esc(c.buyer_id_value||"")}"></label>
           <label>Buyer ID Authority<input name="buyer_id_authority" value="${esc(c.buyer_id_authority||"")}"></label>
+          <label>Buyer legal registration type<select name="buyer_registration_type">
+            <option value="TL" ${(c.buyer_registration_type||"TL")==="TL"?"selected":""}>Commercial / Trade licence</option>
+            <option value="EID" ${c.buyer_registration_type==="EID"?"selected":""}>Emirates ID</option>
+            <option value="PAS" ${c.buyer_registration_type==="PAS"?"selected":""}>Passport</option>
+            <option value="CD" ${c.buyer_registration_type==="CD"?"selected":""}>Cabinet decision</option>
+          </select></label>
           <label class="span2">Legal Name<input name="legal_name" value="${esc(c.legal_name||"")}"></label>
           <label>Location Code Type<input name="location_code_type" value="${esc(c.location_code_type||"")}"></label>
           <label>Location Code Value<input name="location_code_value" value="${esc(c.location_code_value||"")}"></label>
+          <label class="span2">Buyer type for UAE e-Invoicing<select name="einvoice_buyer_type">
+            <option value="business" ${(c.einvoice_buyer_type|| (c.customer_type==="individual"?"consumer":"business"))==="business"?"selected":""}>UAE business (B2B)</option>
+            <option value="government" ${c.einvoice_buyer_type==="government"?"selected":""}>Government entity (B2G)</option>
+            <option value="consumer" ${(c.einvoice_buyer_type||"")==="consumer"||(!c.einvoice_buyer_type&&c.customer_type==="individual")?"selected":""}>Consumer / individual (B2C)</option>
+            <option value="overseas_business" ${c.einvoice_buyer_type==="overseas_business"?"selected":""}>Overseas business</option>
+          </select></label>
           <label class="span2">Electronic Address<input name="electronic_address" value="${esc(c.electronic_address||"")}" placeholder="Electronic invoicing / routing address"></label>
+          <label>Electronic address scheme<input name="electronic_address_scheme" value="${esc(c.electronic_address_scheme||"0235")}" placeholder="0235"></label>
         </div>
       </details>
 
@@ -491,6 +516,8 @@ function showCustomerModal(existing=null){
   const renderContacts=()=>{const host=$(".contact-persons-host",wrap);host.innerHTML=customerContactRowsHtml(contacts);$$(".contact-person-row",host).forEach(row=>{const i=Number(row.dataset.i);$$("[data-k]",row).forEach(el=>el.oninput=()=>contacts[i][el.dataset.k]=el.value);$(".remove-repeat",row).onclick=()=>{contacts.splice(i,1);renderContacts()}})};
   const renderCustom=()=>{const host=$(".custom-fields-host",wrap);host.innerHTML=customerCustomRowsHtml(custom);$$(".custom-field-row",host).forEach(row=>{const i=Number(row.dataset.i);$$("[data-k]",row).forEach(el=>el.oninput=()=>custom[i][el.dataset.k]=el.value);$(".remove-repeat",row).onclick=()=>{custom.splice(i,1);renderCustom()}})};
   renderContacts();renderCustom();
+  const buyerTypeSelect=$('select[name="einvoice_buyer_type"]',wrap);
+  $('input[name="customer_type"]',wrap).forEach(el=>el.onchange=()=>{if(buyerTypeSelect)buyerTypeSelect.value=el.value==="individual"?"consumer":"business"});
   $(".add-contact-person",wrap).onclick=()=>{contacts.push({name:"",email:"",phone:"",designation:""});renderContacts()};
   $(".add-custom-field",wrap).onclick=()=>{custom.push({label:"",value:""});renderCustom()};
   $(".close-modal",wrap).onclick=$(".close-customer",wrap).onclick=()=>wrap.remove();
@@ -1036,16 +1063,47 @@ function renderBilling(){
   $$(".choose-plan").forEach(b=>b.onclick=async()=>{try{await api("/billing-checkout",{method:"POST",body:JSON.stringify({plan:b.dataset.plan})})}catch(err){alert(err.message)}});
 }
 function renderSettings(){
-  const b=state.business;
+  const b=state.business,e=state.einvoice||{},rd=e.readiness||{},tl=e.timeline||null,cs=e.customer_summary||{},cc=e.connection||{},inbox=state.einvoiceInbox||[];
   $("#content").innerHTML=`<div class="page-head"><div><h1>Business settings</h1><p>Seller, VAT, bank and document defaults.</p></div></div>
   <div class="setup-card" style="margin:0"><div style="margin-bottom:22px"><strong>Business logo</strong><p class="muted">PNG, JPEG or WebP, maximum 2 MB.</p>${b.logo_url?`<img src="${esc(b.logo_url)}" style="max-width:160px;max-height:70px;display:block;margin-bottom:10px">`:""}<form id="logo-form"><input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp"><button class="btn btn-outline" type="submit">Upload logo</button></form></div>
   <form id="settings-form" class="form-grid">
     <label class="span2">Legal business name<input name="legal_name" value="${esc(b.legal_name)}" required></label>
     <label>Trade name<input name="trade_name" value="${esc(b.trade_name||"")}"></label><label>Emirate<input name="emirate" value="${esc(b.emirate||"")}"></label>
-    <label class="span2">Address<textarea name="address" rows="2">${esc(b.address||"")}</textarea></label>
+    <label class="span2">Address line 1<textarea name="address" rows="2">${esc(b.address||"")}</textarea></label>
+    <label>City<input name="city" value="${esc(b.city||"")}"></label>
     <label>Phone<input name="phone" value="${esc(b.phone||"")}"></label><label>Email<input name="email" type="email" value="${esc(b.email||"")}"></label>
-    <label>Website<input name="website" value="${esc(b.website||"")}"></label><label>TRN<input name="trn" value="${esc(b.trn||"")}"></label>
+    <label>Website<input name="website" value="${esc(b.website||"")}"></label><label>VAT TRN<input name="trn" value="${esc(b.trn||"")}"></label>
     <label>VAT registered?<select name="vat_registered"><option value="false" ${!b.vat_registered?"selected":""}>No</option><option value="true" ${b.vat_registered?"selected":""}>Yes</option></select></label>
+    <div class="span2" style="border-top:1px solid var(--border);padding-top:16px"><strong>UAE e-Invoicing seller profile</strong><p class="muted">Enter your FTA Tax Identification Number (TIN), trade licence details and the revenue band from your latest accounting period. The TIN is separate from the VAT TRN field.</p></div>
+    <label>Tax Identification Number (TIN)<input name="tin_number" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" value="${esc(b.tin_number||"")}" placeholder="10 digits (first 10 of CT TRN)"></label>
+    <label>Trade licence number<input name="trade_license_number" value="${esc(b.trade_license_number||"")}"></label>
+    <label>Trade licence issuing authority<input name="trade_license_authority" value="${esc(b.trade_license_authority||"")}" placeholder="e.g. Dubai DET"></label>
+    <label>Legal registration ID type<select name="legal_registration_id_type">
+      <option value="TL" ${(b.legal_registration_id_type||"TL")==="TL"?"selected":""}>Trade licence (TL)</option>
+      <option value="EID" ${b.legal_registration_id_type==="EID"?"selected":""}>Emirates ID (EID)</option>
+      <option value="PAS" ${b.legal_registration_id_type==="PAS"?"selected":""}>Passport (PAS)</option>
+      <option value="CD" ${b.legal_registration_id_type==="CD"?"selected":""}>Cabinet Decision (CD)</option>
+    </select></label>
+    <div class="span2" style="border-top:1px solid var(--border);padding-top:16px"><strong>Complyance ASP onboarding contact</strong><p class="muted">Use the administrator email that was used when this legal entity authorised Complyance as its ASP in the FTA portal. Do not use a different email.</p></div>
+    <label>FTA authorised administrator email<input name="einvoice_contact_email" type="email" value="${esc(b.einvoice_contact_email||"")}"></label>
+    <label>Authorised contact person name<input name="einvoice_contact_name" value="${esc(b.einvoice_contact_name||"")}"></label>
+    <label>Contact mobile<input name="einvoice_contact_mobile" value="${esc(b.einvoice_contact_mobile||"")}" placeholder="+9715XXXXXXXX"></label>
+    <label>e-Invoicing scope assessment<select name="einvoice_scope_status">
+      <option value="not_assessed" ${(b.einvoice_scope_status||"not_assessed")==="not_assessed"?"selected":""}>Not assessed</option>
+      <option value="in_scope" ${b.einvoice_scope_status==="in_scope"?"selected":""}>In scope</option>
+      <option value="voluntary" ${b.einvoice_scope_status==="voluntary"?"selected":""}>Voluntary adoption</option>
+      <option value="excluded" ${b.einvoice_scope_status==="excluded"?"selected":""}>Excluded (confirm legal basis)</option>
+    </select></label>
+    <label>Latest annual revenue band<select name="einvoice_revenue_band">
+      <option value="unknown" ${(b.einvoice_revenue_band||"unknown")==="unknown"?"selected":""}>Not confirmed</option>
+      <option value="below_50m" ${b.einvoice_revenue_band==="below_50m"?"selected":""}>Below AED 50 million</option>
+      <option value="at_or_above_50m" ${b.einvoice_revenue_band==="at_or_above_50m"?"selected":""}>AED 50 million or above</option>
+      <option value="government" ${b.einvoice_revenue_band==="government"?"selected":""}>Government entity</option>
+    </select></label>
+    <label class="span2" style="display:flex;flex-direction:row;align-items:center;gap:9px"><input name="einvoice_is_tax_group_member" type="checkbox" style="width:auto" ${b.einvoice_is_tax_group_member?"checked":""}> This legal entity is a member of a UAE VAT Tax Group</label>
+    <label>Branch trade licence number (if applicable)<input name="einvoice_branch_trade_license_number" value="${esc(b.einvoice_branch_trade_license_number||"")}"></label>
+    <label>Free Trade Zone beneficiary ID<input name="einvoice_beneficiary_id" value="${esc(b.einvoice_beneficiary_id||"")}" placeholder="Only when applicable"></label>
+    <label>Disclosed agent principal TRN<input name="einvoice_principal_trn" value="${esc(b.einvoice_principal_trn||"")}" placeholder="Only when applicable"></label>
     <label>Default VAT %<input name="default_tax_rate" type="number" step=".01" value="${esc(b.default_tax_rate)}"></label>
     <label>Currency<input name="currency" value="${esc(b.currency)}"></label><label>Invoice prefix<input name="invoice_prefix" value="${esc(b.invoice_prefix)}"></label>
     <label>Quote prefix<input name="quote_prefix" value="${esc(b.quote_prefix||"QUO-")}"></label><label>Default language<select name="default_language"><option value="en" ${b.default_language!=="ar"?"selected":""}>English</option><option value="ar" ${b.default_language==="ar"?"selected":""}>Arabic</option></select></label>
@@ -1060,9 +1118,71 @@ function renderSettings(){
     <label class="span2" style="display:flex;flex-direction:row;align-items:center;gap:9px"><input name="hide_platform_branding" type="checkbox" style="width:auto" ${b.hide_platform_branding?"checked":""}> Remove “Created with Perficient Zone Billing” branding (Pro/Business)</label>
     <div class="span2"><button class="btn btn-primary">Save changes</button></div>
   </form></div>
-  <div class="panel"><div class="panel-head"><h3>UAE e-invoicing readiness</h3></div><div style="padding:20px"><p><strong>Provider connection:</strong> ${state.einvoice&&state.einvoice.connected?"Connected":"Not connected"}</p><p class="muted">${esc(state.einvoice&&state.einvoice.message||"No UAE Accredited Service Provider is connected.")}</p><div class="readiness-grid"><span>${state.einvoice&&state.einvoice.readiness&&state.einvoice.readiness.business_name?"✓":"○"} Business name</span><span>${state.einvoice&&state.einvoice.readiness&&state.einvoice.readiness.trn?"✓":"○"} TRN readiness</span><span>${state.einvoice&&state.einvoice.readiness&&state.einvoice.readiness.vat_configuration?"✓":"○"} VAT configuration</span><span>${state.einvoice&&state.einvoice.readiness&&state.einvoice.readiness.asp_provider_connected?"✓":"○"} ASP connection</span></div><p class="muted" style="margin-top:12px">No government or ASP transmission is performed until a provider-specific integration is configured.</p></div></div>`;
-  $("#settings-form").onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target).entries());body.vat_registered=body.vat_registered==="true";body.default_tax_rate=Number(body.default_tax_rate);body.hide_platform_branding=body.hide_platform_branding==="on";try{const out=await api("/business",{method:"POST",body:JSON.stringify(body)});state.business=out.business;await Promise.all([loadPlan(),loadEinvoice()]);alert(out.notice||"Settings saved");renderSettings()}catch(err){alert(err.message)}};
+  <div class="panel"><div class="panel-head"><h3>UAE e-Invoicing readiness</h3><a href="https://mof.gov.ae/en/about-us/initiatives/einvoicing/einvoicing-accredited-service-providers-asps/" target="_blank" rel="noopener">Official accredited ASP list ↗</a></div><div style="padding:20px">
+    <p><strong>ASP connection:</strong> ${e.connected?"Complyance linked":"Not connected"}</p>
+    <p class="muted">${esc(e.message||"No UAE Accredited Service Provider is connected.")}</p>
+    <div class="readiness-grid">
+      <span>${rd.business_name?"✓":"○"} Legal business name</span>
+      <span>${rd.tin?"✓":"○"} 10-digit TIN</span>
+      <span>${rd.trade_license?"✓":"○"} Trade licence</span>
+      <span>${rd.seller_address?"✓":"○"} Seller address</span>
+      <span>${rd.trn?"✓":"○"} VAT TRN (if registered)</span>
+      <span>${rd.scope_assessed?"✓":"○"} Scope assessed</span>
+      <span>${rd.revenue_band_selected?"✓":"○"} Revenue band selected</span>
+      <span>${rd.asp_contact?"✓":"○"} FTA ASP contact details</span>
+      <span>${rd.asp_provider_connected?"✓":"○"} Accredited ASP linked</span>
+      <span>${rd.asp_mapping_ready?"✓":"○"} Provider mapping ready</span>
+      <span>Business customers: ${Number(cs.business_customers||0)}</span>
+      <span>Customers missing TIN/legal ID: ${Number(cs.customers_missing_identifiers||0)}</span>
+    </div>
+    ${tl ? '<p style="margin-top:14px"><strong>Phase:</strong> '+esc(tl.phase)+' · ASP appointment deadline: '+esc(tl.appointment_deadline)+' · Implementation: '+esc(tl.implementation_date)+'</p>'+(tl.appointment_overdue?'<p style="color:#a33b32;font-weight:700">The ASP appointment deadline for this revenue band has passed. Contact an accredited provider promptly.</p>':'') : '<p class="muted" style="margin-top:14px">Select the annual revenue band above to display the applicable implementation timeline.</p>'}
+    ${e.tax_group_member ? '<p class="muted">Tax Group note: only qualifying transactions between members of the same Tax Group receive the temporary 24-month exclusion from 1 January 2027; third-party transactions remain subject to the applicable rules.</p>' : ''}
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
+      <strong>Complyance Electronics L.L.C · Accredited ASP 112219</strong>
+      <p class="muted">Sandbox onboarding uses your real 10-digit TIN and the exact administrator email that authorised Complyance in the FTA portal. The Complyance ISV sandbox API key must be configured in Hostinger server environment variables.</p>
+      ${cc.company_id?`<p><strong>Environment:</strong> ${esc(cc.environment||"sandbox")} · <strong>Company ID:</strong> ${esc(cc.company_id)} · <strong>Branch:</strong> ${esc(cc.branch_name||"")}</p><p><strong>Source:</strong> ${esc((cc.source_name||"")+" :"+(cc.source_version||""))}</p><p><strong>Mapping:</strong> ${cc.mapping_ready?"Ready for sandbox invoice validation":"Action required — Default GETS Mapping Testbed cases"}</p>`:''}
+      ${cc.last_error?`<p style="color:#a33b32">${esc(cc.last_error)}</p>`:''}
+      <label style="display:flex;gap:8px;align-items:flex-start;margin:14px 0"><input type="checkbox" id="fta-authorized" style="width:auto;margin-top:4px"> <span>I confirm this legal entity has authorised Complyance as its ASP in the FTA portal using the TIN and administrator email entered above.</span></label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn btn-primary" id="connect-complyance">Connect Complyance Sandbox</button>${cc.company_id?'<button type="button" class="btn btn-outline" id="refresh-complyance">Refresh provider status</button>':''}</div>
+      <p class="muted" style="margin-top:12px">Sandbox webhook URL: ${esc((window.location.origin||"")+"/api/webhooks/complyance/sandbox")}. Register it in the Complyance Developer Portal with HMAC SHA-256 signing and the two purchase invoice events.</p>
+    </div>
+    <p class="muted" style="margin-top:12px">Production transmission remains disabled until the Complyance sandbox tests, FTA ASP authorisation, production onboarding and end-to-end checks are complete.</p>
+  </div></div>
+  <div class="panel"><div class="panel-head"><h3>Incoming supplier e-Invoices</h3><span class="muted">${inbox.length} received</span></div><div class="table-wrap"><table><thead><tr><th>Supplier</th><th>Invoice #</th><th>Date</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>${inbox.length?inbox.map(x=>`<tr><td>${esc(x.sender_name||"Supplier")}</td><td>${esc(x.document_number||"—")}</td><td>${esc(x.issue_date||"—")}</td><td>${money(x.total||0,x.currency||"AED")}</td><td>${esc(x.status||"received")}</td><td><button class="btn btn-outline btn-sm" data-inbox-id="${x.id}">Fetch details</button></td></tr>`).join(""):'<tr><td colspan="6" class="muted">No incoming supplier e-Invoices have been received yet. Configure the signed Complyance sandbox webhook to populate this inbox.</td></tr>'}</tbody></table></div></div>`;
+  $("#settings-form").onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target).entries());body.vat_registered=body.vat_registered==="true";body.default_tax_rate=Number(body.default_tax_rate);body.hide_platform_branding=body.hide_platform_branding==="on";body.einvoice_is_tax_group_member=body.einvoice_is_tax_group_member==="on";try{const out=await api("/business",{method:"POST",body:JSON.stringify(body)});state.business=out.business;await Promise.all([loadPlan(),loadEinvoice(),loadEinvoiceInbox()]);alert(out.notice||"Settings saved");renderSettings()}catch(err){alert(err.message)}};
   $("#logo-form").onsubmit=async e=>{e.preventDefault();const file=$("#logo-file").files[0];if(!file){alert("Choose a logo first.");return}const fd=new FormData();fd.append("logo",file);try{const res=await fetch(API+"/business-logo",{method:"POST",body:fd});const data=await res.json();if(!res.ok)throw new Error(data.error||"Upload failed");state.business=data.business;alert("Logo uploaded.");renderSettings()}catch(err){alert(err.message)}};
+  $("#connect-complyance").onclick=async()=>{
+    if(!$("#fta-authorized").checked){alert("First confirm that Complyance has been authorised as the ASP in the FTA portal for this TIN and contact email.");return}
+    if(!confirm("Connect this legal entity to Complyance sandbox? This sends its TIN and authorised administrator details to the provider."))return;
+    try{
+      const form=$("#settings-form");
+      if(!form.reportValidity())return;
+      const settings=Object.fromEntries(new FormData(form).entries());
+      settings.vat_registered=settings.vat_registered==="true";
+      settings.default_tax_rate=Number(settings.default_tax_rate||0);
+      settings.hide_platform_branding=settings.hide_platform_branding==="on";
+      settings.einvoice_is_tax_group_member=settings.einvoice_is_tax_group_member==="on";
+      const saved=await api("/business",{method:"POST",body:JSON.stringify(settings)});
+      state.business=saved.business;
+      const result=await api("/einvoicing-connect",{method:"POST",body:JSON.stringify({authorized_by_business:true})});
+      await Promise.all([loadEinvoice(),loadEinvoiceInbox()]);
+      alert(result.message);renderSettings()
+    }catch(err){alert(err.message)}
+  };
+  const refresh=$("#refresh-complyance");
+  if(refresh)refresh.onclick=async()=>{try{const result=await api("/einvoicing-sync",{method:"POST",body:JSON.stringify({})});await loadEinvoice();alert(result.message);renderSettings()}catch(err){alert(err.message)}};
+  $$("[data-inbox-id]").forEach(button=>button.onclick=async()=>{button.disabled=true;try{
+    const result=await api("/einvoicing-inbox/"+button.dataset.inboxId);
+    const doc=result.document||{},invoice=doc.invoice||{},header=invoice.header||{},totals=invoice.totals||{};
+    const supplier=invoice.parties?.seller?.name||doc.supplierName||"Supplier";
+    const number=header.documentNumber||doc.documentNumber||"—";
+    const amount=totals.totalAmountIncludingTax??doc.totalAmount??"—";
+    const currency=header.currency||doc.currency||"AED";
+    const lines=["Supplier: "+supplier,"Invoice: "+number,"Issue date: "+(header.issueDate||doc.issueDate||"—"),"Total: "+amount+" "+currency,"Provider state: "+(doc.state||"received")];
+    if(Array.isArray(doc.errors)&&doc.errors.length)lines.push("Provider issues: "+doc.errors.map(x=>x.message||x.code).join("; "));
+    alert(lines.join("\n"));
+    await loadEinvoiceInbox();renderSettings()
+  }catch(err){alert(err.message)}finally{button.disabled=false}});
 }
 
 function blankDraft(){
@@ -1072,6 +1192,7 @@ function blankDraft(){
     invoice_format:"full",tax_display:state.business.vat_registered?"line":"hidden",vat_mode:"exclusive",
     discount_type:"fixed",discount_value:0,amount_paid:0,status:"draft",share_enabled:true,
     template_key:"classic",language:state.business.default_language||"en",exchange_rate_to_aed:1,
+    einvoice_document_type:"tax_invoice",einvoice_transaction_type_code:"00000000",einvoice_payment_means_code:"",
     items:[{item_name:"Service",description:"",quantity:1,unit:"",rate:0,discount_percent:0,tax_rate:state.business.vat_registered?Number(state.business.default_tax_rate||5):0,tax_category:state.business.vat_registered?"standard":"out_of_scope"}]
   };
 }
@@ -1086,7 +1207,9 @@ function showInvoiceEditor(existing=null){
     state.template=d.template_key||"classic";
   }
   applyCompliance(d);
-  $("#content").innerHTML=`<div class="page-head"><div><h1>${existing?"Edit invoice":"Create invoice"}</h1><p>${state.business.vat_registered?"VAT-registered businesses use compliance-aware tax display rules.":"Choose how tax information is displayed for non-VAT documents."}</p></div><button class="btn btn-outline" id="back-invoices">Back to invoices</button></div>
+  const eiFlagLabels=["Free Trade Zone","Deemed Supply","Margin Scheme","Summary Invoice","Continuous Supply","Disclosed Agent Billing","Supply through e-commerce","Exports"];
+  const eiFlags=String(d.einvoice_transaction_type_code||"00000000").padEnd(8,"0").slice(0,8);
+  $("#content").innerHTML=`<div class="page-head"><div><h1>${existing?"Edit invoice":"Create invoice"}</h1><p>${state.business.vat_registered?"VAT-registered businesses use compliance-aware tax display rules.":"Choose how tax information is displayed for non-VAT documents."}</p>${existing&&existing.einvoice_status&&existing.einvoice_status!=="not_prepared"?`<p class="muted">e-Invoice status: <strong>${esc(existing.einvoice_status)}</strong>${existing.einvoice_provider_document_id?" · Provider document ID: "+esc(existing.einvoice_provider_document_id):""}</p>`:""}</div><button class="btn btn-outline" id="back-invoices">Back to invoices</button></div>
   <div class="template-bar" id="template-bar">${[["classic","Classic"],["modern","Modern"],["minimal","Minimal"],["corporate","Corporate"],["elegant","Elegant"],["professional","Professional"],["compact","Compact"],["bold","Bold"]].map(([k,n])=>`<button class="template-chip ${state.template===k?"active":""}" data-template="${k}">${n}</button>`).join("")}</div>
   <div class="invoice-editor">
     <section class="editor-panel">
@@ -1108,6 +1231,28 @@ function showInvoiceEditor(existing=null){
         <label class="editor-field span3 fx-field ${state.business.vat_registered&&d.currency!=="AED"?"":"hidden"}">Exchange rate to AED<input id="f-fx" type="number" step=".00000001" min="0" value="${Number(d.exchange_rate_to_aed||1)}"><small>Required so VAT can also be shown in AED.</small></label>
       </div>
 
+      <details class="customer-details" open style="margin:14px 0"><summary>UAE e-Invoicing (PINT AE)</summary>
+        <div class="editor-grid" style="padding:14px">
+          <label class="editor-field">e-Invoice document type<select id="f-ei-doc-type">
+            <option value="tax_invoice" selected>Tax invoice</option>
+            
+          </select></label>
+          <label class="editor-field">Payment means type code<select id="f-ei-payment-means">
+            <option value="">Select payment means</option>
+            <option value="1" ${String(d.einvoice_payment_means_code||"")==="1"?"selected":""}>1 · Instrument not defined</option>
+            <option value="10" ${String(d.einvoice_payment_means_code||"")==="10"?"selected":""}>10 · Cash</option>
+            <option value="20" ${String(d.einvoice_payment_means_code||"")==="20"?"selected":""}>20 · Cheque</option>
+            <option value="21" ${String(d.einvoice_payment_means_code||"")==="21"?"selected":""}>21 · Banker's draft</option>
+            <option value="30" ${String(d.einvoice_payment_means_code||"")==="30"?"selected":""}>30 · Credit transfer</option>
+            <option value="49" ${String(d.einvoice_payment_means_code||"")==="49"?"selected":""}>49 · Direct debit</option>
+            <option value="54" ${String(d.einvoice_payment_means_code||"")==="54"?"selected":""}>54 · Credit card</option>
+            <option value="55" ${String(d.einvoice_payment_means_code||"")==="55"?"selected":""}>55 · Debit card</option>
+            <option value="68" ${String(d.einvoice_payment_means_code||"")==="68"?"selected":""}>68 · Online payment service</option>
+          </select></label>
+          <div class="span3"><strong>Transaction type flags</strong><p class="muted">Leave unchecked unless the transaction actually falls under that category.</p></div>
+          ${eiFlagLabels.map((label,i)=>`<label class="editor-field" style="display:flex;flex-direction:row;align-items:center;gap:8px"><input type="checkbox" data-ei-flag="${i}" style="width:auto" ${eiFlags[i]==="1"?"checked":""}> ${label}</label>`).join("")}
+        </div>
+      </details>
       <div class="invoice-identity-box">
         <div class="invoice-logo-control">
           <div class="identity-label">Company logo</div>
@@ -1129,7 +1274,7 @@ function showInvoiceEditor(existing=null){
       <div class="product-picker"><select id="product-picker"><option value="">Add from Products & Services</option>${state.products.map(p=>`<option value="${p.id}">${esc(p.name)} · ${money(p.rate,d.currency)}</option>`).join("")}</select><button class="btn btn-outline" id="add-product-line">Add selected</button></div>
       <div class="items-box"><div class="item-head phase2"><span>Item / description</span><span>Qty</span><span>Rate</span><span>Disc %</span><span>VAT</span><span></span></div><div id="items"></div></div>
 
-      <div class="editor-actions"><button class="btn btn-outline" id="add-item">+ Custom item</button><div class="right">${existing?`<button class="btn btn-outline" id="record-payment">Record payment</button><button class="btn btn-outline" id="writeoff-invoice">Write off</button>`:""}<button class="btn btn-outline" id="print-invoice">Print</button><button class="btn btn-primary" id="save-invoice">${existing?"Save changes":"Create invoice"}</button></div></div>
+      <div class="editor-actions"><button class="btn btn-outline" id="add-item">+ Custom item</button><div class="right">${existing?`<button class="btn btn-outline" id="record-payment">Record payment</button><button class="btn btn-outline" id="writeoff-invoice">Write off</button><button class="btn btn-outline" id="validate-einvoice">Check e-Invoice</button><button class="btn btn-outline" id="submit-einvoice">Send to Complyance</button><button class="btn btn-outline" id="refresh-einvoice-status">Refresh e-Invoice status</button>`:""}<button class="btn btn-outline" id="print-invoice">Print</button><button class="btn btn-primary" id="save-invoice">${existing?"Save changes":"Create invoice"}</button></div></div>
       <div class="totals-editor">
         <div class="row"><span>Discount type</span><select id="f-discount-type"><option value="fixed" ${d.discount_type!=="percent"?"selected":""}>Fixed amount</option><option value="percent" ${d.discount_type==="percent"?"selected":""}>Percentage</option></select></div>
         <div class="row"><span>Discount value</span><input id="f-discount" type="number" step=".01" min="0" value="${Number(d.discount_value||0)}"></div>
@@ -1141,6 +1286,37 @@ function showInvoiceEditor(existing=null){
     <aside class="preview-wrap"><div id="preview" class="invoice-page"></div></aside>
   </div>`;
   $("#back-invoices").onclick=()=>navigate("invoices");
+  const checkEinvoice=$("#validate-einvoice");
+  if(checkEinvoice)checkEinvoice.onclick=async()=>{
+    checkEinvoice.disabled=true;
+    try{
+      const result=await api("/einvoicing-validate/"+existing.id);
+      const lines=[result.message||""];
+      if(result.provider_validation)lines.push("Provider validation: "+result.provider_validation);
+      if(result.errors&&result.errors.length)lines.push("\nIssues:\n• "+result.errors.map(x=>typeof x==="string"?x:(x.message||x.path||JSON.stringify(x))).join("\n• "));
+      if(result.warnings&&result.warnings.length)lines.push("\nNotes:\n• "+result.warnings.join("\n• "));
+      alert(lines.filter(Boolean).join("\n"));
+    }catch(err){alert(err.message)}finally{checkEinvoice.disabled=false}
+  };
+  const submitEinvoice=$("#submit-einvoice");
+  if(submitEinvoice)submitEinvoice.onclick=async()=>{
+    if(!confirm("Send this issued invoice to Complyance? It will first be validated in the configured environment, then submitted for electronic processing. Do not use this for a draft invoice."))return;
+    submitEinvoice.disabled=true;submitEinvoice.textContent="Submitting...";
+    try{
+      const result=await api("/einvoicing-submit/"+existing.id,{method:"POST",body:JSON.stringify({confirm_submit:true})});
+      alert(result.message+"\nDocument ID: "+result.documentId+"\nStatus: "+result.status);
+      await openInvoice(existing.id);
+    }catch(err){alert(err.message)}finally{submitEinvoice.disabled=false;submitEinvoice.textContent="Send to Complyance"}
+  };
+  const refreshEinvoice=$("#refresh-einvoice-status");
+  if(refreshEinvoice)refreshEinvoice.onclick=async()=>{
+    refreshEinvoice.disabled=true;
+    try{
+      const result=await api("/einvoicing-document-status/"+existing.id,{method:"POST",body:JSON.stringify({})});
+      alert(result.message+"\nStatus: "+result.status);
+      await openInvoice(existing.id);
+    }catch(err){alert(err.message)}finally{refreshEinvoice.disabled=false}
+  };
   $$("#template-bar .template-chip").forEach(b=>b.onclick=()=>{state.template=b.dataset.template;d.template_key=state.template;$$(".template-chip").forEach(x=>x.classList.toggle("active",x===b));renderPreview()});
   bindEditorFields();renderItemRows();renderPreview();if(existing)bindShareActions(existing);
 }
@@ -1172,8 +1348,9 @@ async function showInvoiceActivity(id){
 }
 function bindEditorFields(){
   const d=state.editing;
-  const map=[["#f-customer","customer_id"],["#f-project","project_id"],["#f-number","invoice_number"],["#f-currency","currency"],["#f-date","invoice_date"],["#f-supply","supply_date"],["#f-due","due_date"],["#f-vatmode","vat_mode"],["#f-format","invoice_format"],["#f-taxdisplay","tax_display"],["#f-language","language"],["#f-status","status"],["#f-reference","reference"],["#f-salesperson","salesperson_name"],["#f-discount-type","discount_type"],["#f-discount","discount_value"],["#f-paid","amount_paid"],["#f-notes","notes"],["#f-terms","terms"],["#f-fx","exchange_rate_to_aed"],["#f-share","share_enabled"]];
+  const map=[["#f-customer","customer_id"],["#f-project","project_id"],["#f-number","invoice_number"],["#f-currency","currency"],["#f-date","invoice_date"],["#f-supply","supply_date"],["#f-due","due_date"],["#f-vatmode","vat_mode"],["#f-format","invoice_format"],["#f-taxdisplay","tax_display"],["#f-language","language"],["#f-status","status"],["#f-reference","reference"],["#f-salesperson","salesperson_name"],["#f-discount-type","discount_type"],["#f-discount","discount_value"],["#f-paid","amount_paid"],["#f-notes","notes"],["#f-terms","terms"],["#f-fx","exchange_rate_to_aed"],["#f-share","share_enabled"],["#f-ei-doc-type","einvoice_document_type"],["#f-ei-payment-means","einvoice_payment_means_code"]];
   map.forEach(([sel,key])=>{const el=$(sel);if(!el)return;el.oninput=el.onchange=()=>{if(["discount_value","amount_paid","exchange_rate_to_aed"].includes(key))d[key]=Number(el.value||0);else if(key==="share_enabled")d[key]=el.value==="true";else d[key]=el.value;if(key==="invoice_format"){applyCompliance(d);const td=$("#f-taxdisplay");if(td){td.innerHTML=d.invoice_format==="simplified"?'<option value="totals">VAT in totals (simplified)</option>':'<option value="line">VAT per line (full invoice)</option>';td.value=d.tax_display}renderPreview();return}if(key==="currency")$(".fx-field").classList.toggle("hidden",!(state.business.vat_registered&&d.currency!=="AED"));renderPreview()}});
+  $("[data-ei-flag]").forEach(el=>el.onchange=()=>{const flags=Array.from({length:8},(_,i)=>{const x=$('[data-ei-flag="'+i+'"]');return x&&x.checked?"1":"0"}).join("");d.einvoice_transaction_type_code=flags});
   $("#add-item").onclick=()=>{d.items.push({item_name:"Service",description:"",quantity:1,unit:"",rate:0,discount_percent:0,tax_rate:state.business.vat_registered?Number(state.business.default_tax_rate||5):0,tax_category:state.business.vat_registered?"standard":"out_of_scope"});renderItemRows();renderPreview()};
   $("#add-product-line").onclick=()=>{const p=state.products.find(x=>x.id===$("#product-picker").value);if(!p)return;d.items.push({item_name:p.name,description:p.description||"",quantity:1,unit:p.unit||"",rate:Number(p.rate),discount_percent:0,tax_rate:Number(p.tax_rate),tax_category:p.tax_category});renderItemRows();renderPreview()};
   $("#upload-invoice-logo").onclick=async()=>{
@@ -1196,7 +1373,7 @@ function bindEditorFields(){
 function renderItemRows(){
   const d=state.editing;
   $("#items").innerHTML=d.items.map((it,i)=>`<div class="item-row phase2" data-i="${i}">
-    <div class="item-name-wrap"><input data-k="item_name" value="${esc(it.item_name)}" placeholder="Item"><textarea data-k="description" placeholder="Description">${esc(it.description||"")}</textarea></div>
+    <div class="item-name-wrap"><input data-k="item_name" value="${esc(it.item_name)}" placeholder="Item"><textarea data-k="description" placeholder="Description">${esc(it.description||"")}</textarea><input data-k="unit" value="${esc(it.unit||"")}" placeholder="Unit code (PCE, HUR, DAY, KGM)"></div>
     <input data-k="quantity" type="number" step=".001" min="0" value="${Number(it.quantity||0)}">
     <input data-k="rate" type="number" step=".01" min="0" value="${Number(it.rate||0)}">
     <input data-k="discount_percent" type="number" step=".01" min="0" max="100" value="${Number(it.discount_percent||0)}">

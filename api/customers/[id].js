@@ -11,6 +11,7 @@ const cleanType=v=>v==="individual"?"individual":"business";
 const cleanLang=v=>v==="ar"?"ar":"en";
 const paymentDays=v=>[0,7,15,30,45,60,90].includes(Number(v))?Number(v):0;
 const safeArray=v=>Array.isArray(v)?v.slice(0,20):[];
+const buyerType=(v,type)=>["business","government","consumer","overseas_business"].includes(v)?v:(type==="individual"?"consumer":"business");
 
 export default async function(req,res){
   const business=await businessFor(req.user.id);
@@ -43,8 +44,9 @@ export default async function(req,res){
       city=$19,emirate=$20,postal_code=$21,country=$22,contact_persons=$23::jsonb,custom_fields=$24::jsonb,
       remarks=$25,tin_number=$26,buyer_id_value=$27,buyer_id_authority=$28,legal_name=$29,
       location_code_type=$30,location_code_value=$31,electronic_address=$32,payment_terms_days=$33,
-      portal_enabled=$34,customer_owner_user_id=$35,customer_owner_email=$36,notes=$37,updated_at=now()
-     WHERE id=$38 AND business_id=$39 RETURNING *`,
+      portal_enabled=$34,customer_owner_user_id=$35,customer_owner_email=$36,notes=$37,
+      electronic_address_scheme=$38,einvoice_buyer_type=$39,buyer_registration_type=$40,updated_at=now()
+     WHERE id=$41 AND business_id=$42 RETURNING *`,
     [display,company||null,c.email||null,c.phone||null,billing||c.billing_address||null,c.trn||null,
      cleanType(c.customer_type),c.salutation||null,first||null,last||null,display,c.display_name_ar||null,
      c.work_phone||null,c.mobile||null,cleanLang(c.customer_language),c.other_details||null,
@@ -52,7 +54,9 @@ export default async function(req,res){
      JSON.stringify(safeArray(c.contact_persons)),JSON.stringify(safeArray(c.custom_fields)),c.remarks||null,c.tin_number||null,
      c.buyer_id_value||null,c.buyer_id_authority||null,legal||null,c.location_code_type||null,c.location_code_value||null,
      c.electronic_address||null,paymentDays(c.payment_terms_days),c.portal_enabled!==false,req.user.id,
-     req.user.email||found[0].customer_owner_email||null,c.notes||null,id,business.id]);
+     req.user.email||found[0].customer_owner_email||null,c.notes||null,c.electronic_address_scheme||"0235",
+     buyerType(c.einvoice_buyer_type,cleanType(c.customer_type)),
+     ["TL","EID","PAS","CD"].includes(c.buyer_registration_type)?c.buyer_registration_type:"TL",id,business.id]);
 
   res.json({customer:rows[0]});
 }

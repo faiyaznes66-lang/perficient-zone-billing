@@ -21,6 +21,14 @@ export default async function(req,res){
   const b=req.body||{};
   const legal=(b.legal_name||"").trim();
   if(!legal) return res.status(400).json({error:"Business name is required"});
+  const tin=(b.tin_number||"").replace(/\s+/g,"");
+  if(tin && !/^1\d{9}$/.test(tin)) return res.status(400).json({error:"UAE e-invoicing TIN must contain exactly 10 digits."});
+  const scopeStatus=["in_scope","excluded","voluntary","not_assessed"].includes(b.einvoice_scope_status)?b.einvoice_scope_status:"not_assessed";
+  const revenueBand=["below_50m","at_or_above_50m","government","unknown"].includes(b.einvoice_revenue_band)?b.einvoice_revenue_band:"unknown";
+  const einvoiceContactEmail=(b.einvoice_contact_email||"").trim().toLowerCase();
+  if(einvoiceContactEmail&&!/^\\S+@\\S+\\.\\S+$/.test(einvoiceContactEmail)) return res.status(400).json({error:"Enter a valid FTA authorised administrator email for ASP onboarding."});
+  const principalTrn=(b.einvoice_principal_trn||"").replace(/\\s+/g,"");
+  if(principalTrn&&!/^1\\d{12}03$/.test(principalTrn)) return res.status(400).json({error:"The disclosed-agent principal TRN must be a valid 15-digit UAE TRN."});
 
   const vals=[
     uid,legal,(b.trade_name||"").trim()||null,b.country||"United Arab Emirates",b.emirate||null,
@@ -28,15 +36,23 @@ export default async function(req,res){
     !!b.vat_registered,Number.isFinite(Number(b.default_tax_rate))?Number(b.default_tax_rate):5,
     b.currency||"AED",b.invoice_prefix||"INV-",b.quote_prefix||"QUO-",b.default_language||"en",
     b.bank_name||null,b.account_name||null,b.iban||null,b.swift||null,b.payment_instructions||null,
-    accent(b.invoice_accent),font(b.invoice_font),b.invoice_footer||null,!!b.hide_platform_branding
+    accent(b.invoice_accent),font(b.invoice_font),b.invoice_footer||null,!!b.hide_platform_branding,
+    tin||null,(b.trade_license_number||"").trim()||null,(b.trade_license_authority||"").trim()||null,
+    scopeStatus,revenueBand,!!b.einvoice_is_tax_group_member,(b.einvoice_branch_trade_license_number||"").trim()||null,
+    (b.city||"").trim()||null,["TL","EID","PAS","CD"].includes(b.legal_registration_id_type)?b.legal_registration_id_type:"TL",
+    (b.einvoice_contact_name||"").trim()||null,einvoiceContactEmail||null,
+    (b.einvoice_contact_mobile||"").trim()||null,(b.einvoice_beneficiary_id||"").trim()||null,
+    principalTrn||null
   ];
 
   const {rows}=await db.query(
     `INSERT INTO businesses
       (owner_user_id,legal_name,trade_name,country,emirate,address,phone,email,website,trn,vat_registered,default_tax_rate,
        currency,invoice_prefix,quote_prefix,default_language,bank_name,account_name,iban,swift,payment_instructions,
-       invoice_accent,invoice_font,invoice_footer,hide_platform_branding)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+       invoice_accent,invoice_font,invoice_footer,hide_platform_branding,tin_number,trade_license_number,trade_license_authority,
+       einvoice_scope_status,einvoice_revenue_band,einvoice_is_tax_group_member,einvoice_branch_trade_license_number,city,legal_registration_id_type,
+       einvoice_contact_name,einvoice_contact_email,einvoice_contact_mobile,einvoice_beneficiary_id,einvoice_principal_trn)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
      ON CONFLICT (owner_user_id) DO UPDATE SET
       legal_name=EXCLUDED.legal_name,trade_name=EXCLUDED.trade_name,country=EXCLUDED.country,
       emirate=EXCLUDED.emirate,address=EXCLUDED.address,phone=EXCLUDED.phone,email=EXCLUDED.email,
@@ -47,7 +63,15 @@ export default async function(req,res){
       account_name=EXCLUDED.account_name,iban=EXCLUDED.iban,swift=EXCLUDED.swift,
       payment_instructions=EXCLUDED.payment_instructions,invoice_accent=EXCLUDED.invoice_accent,
       invoice_font=EXCLUDED.invoice_font,invoice_footer=EXCLUDED.invoice_footer,
-      hide_platform_branding=EXCLUDED.hide_platform_branding,updated_at=now()
+      hide_platform_branding=EXCLUDED.hide_platform_branding,
+      tin_number=EXCLUDED.tin_number,trade_license_number=EXCLUDED.trade_license_number,
+      trade_license_authority=EXCLUDED.trade_license_authority,einvoice_scope_status=EXCLUDED.einvoice_scope_status,
+      einvoice_revenue_band=EXCLUDED.einvoice_revenue_band,einvoice_is_tax_group_member=EXCLUDED.einvoice_is_tax_group_member,
+      einvoice_branch_trade_license_number=EXCLUDED.einvoice_branch_trade_license_number,
+      city=EXCLUDED.city,legal_registration_id_type=EXCLUDED.legal_registration_id_type,
+      einvoice_contact_name=EXCLUDED.einvoice_contact_name,einvoice_contact_email=EXCLUDED.einvoice_contact_email,
+      einvoice_contact_mobile=EXCLUDED.einvoice_contact_mobile,einvoice_beneficiary_id=EXCLUDED.einvoice_beneficiary_id,
+      einvoice_principal_trn=EXCLUDED.einvoice_principal_trn,updated_at=now()
      RETURNING *`,vals);
 
   await db.query(

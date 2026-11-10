@@ -15,11 +15,11 @@ body{min-height:100vh;display:grid;place-items:center;background:linear-gradient
 <main class="login-card">
   <a class="brand login-brand" href="/"><span class="brand-mark">P</span><span>Perficient Zone Billing</span></a>
   <h1 id="title">Sign in or create an account</h1>
-  <p class="sub" id="sub">Enter your email and we'll send you a one-time code. No password to remember.</p>
+  <p class="sub" id="sub">Enter your email and we'll send you a secure sign-in link. No password to remember.</p>
   <form id="form" novalidate>
     <div id="email-row"><input class="field" id="email" type="email" placeholder="you@company.com" autocomplete="username webauthn" required></div>
-    <div id="code-row" hidden><input class="field" id="code" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]*" autocomplete="one-time-code" placeholder="6-digit code"></div>
-    <button class="btn btn-primary full" id="submit" type="submit">Continue</button>
+    <div id="code-row" hidden></div>
+    <button class="btn btn-primary full" id="submit" type="submit">Send sign-in link</button>
     <button class="alt" id="back" type="button" hidden>Use a different email</button>
   </form>
   <div id="passkey" hidden>
@@ -29,48 +29,30 @@ body{min-height:100vh;display:grid;place-items:center;background:linear-gradient
   <p class="msg" id="msg" role="status" aria-live="polite"></p>
   <p class="fine">By continuing, you agree to use the service only for lawful business invoicing.</p>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/runtime-config.js"></script>
 <script>
 (function(){
-  var A=window.hatchable&&window.hatchable.auth;
-  var form=document.getElementById('form'),emailRow=document.getElementById('email-row'),codeRow=document.getElementById('code-row');
-  var emailEl=document.getElementById('email'),codeEl=document.getElementById('code'),submit=document.getElementById('submit'),back=document.getElementById('back');
-  var msg=document.getElementById('msg'),sub=document.getElementById('sub'),title=document.getElementById('title');
-  var pk=document.getElementById('passkey'),pkAdd=document.getElementById('passkey-add'),pkSkip=document.getElementById('passkey-skip');
-  var step='email',hasPasskey=false,KEY='if_passkey_declined';
+  var cfg=window.__APP_CONFIG__||{};
+  var A=window.supabase&&window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
+  var form=document.getElementById('form'),emailEl=document.getElementById('email'),submit=document.getElementById('submit');
+  var msg=document.getElementById('msg'),sub=document.getElementById('sub');
   function safeNext(){var raw=new URLSearchParams(location.search).get('next')||'/app/';return(raw[0]==='/'&&raw.indexOf('//')!==0)?raw:'/app/'}
   function say(t,k){msg.textContent=t||'';msg.className='msg '+(k||'')}
-  function done(){location.replace(safeNext())}
-  function declined(){try{return localStorage.getItem(KEY)==='1'}catch(e){return false}}
-  function decline(){try{localStorage.setItem(KEY,'1')}catch(e){}}
-  function finish(){
-    if(hasPasskey||declined()||!A.registerPasskey||!A.supportsPasskeys||!A.supportsPasskeys()){done();return}
-    form.hidden=true;pk.hidden=false;title.textContent="You're signed in";
-    sub.textContent='Add a passkey for faster sign-in next time using your device security.';say('');pkAdd.focus()
-  }
   if(!A){say('Sign-in is unavailable. Refresh and try again.','err');submit.disabled=true;return}
-  A.getSession().then(function(s){if(s&&s.user)done()}).catch(function(){});
-  if(A.attachPasskeyAutofill){try{A.attachPasskeyAutofill(emailEl).then(function(r){if(r&&r.user)done()}).catch(function(){})}catch(e){}}
-  back.onclick=function(){step='email';codeRow.hidden=true;emailRow.hidden=false;back.hidden=true;submit.textContent='Continue';sub.textContent="Enter your email and we'll send you a one-time code. No password to remember.";say('');emailEl.focus()};
-  pkAdd.onclick=function(){pkAdd.disabled=true;pkSkip.disabled=true;A.registerPasskey().then(function(r){if(!r)decline();done()}).catch(function(e){pkAdd.disabled=false;pkSkip.disabled=false;say((e&&e.message)||'Could not save the passkey. You can continue without one.','err')})};
-  pkSkip.onclick=function(){decline();done()};
-  form.onsubmit=function(e){
+  A.auth.getSession().then(function(r){if(r.data&&r.data.session)location.replace(safeNext())});
+  form.onsubmit=async function(e){
     e.preventDefault();submit.disabled=true;
-    if(step==='email'){
-      var email=(emailEl.value||'').trim();if(!email){submit.disabled=false;say('Enter your email address.','err');return}
-      A.startLogin({email:email}).then(function(r){
-        hasPasskey=!!(r&&r.has_passkey);
-        if(hasPasskey&&A.supportsPasskeys&&A.supportsPasskeys()){
-          return A.signInWithPasskey({email:email}).then(function(d){if(d&&d.user){done();return null}return'code'}).catch(function(){return'code'})
-        }return'code'
-      }).then(function(next){if(next!=='code')return;step='code';emailRow.hidden=true;codeRow.hidden=false;back.hidden=false;submit.textContent='Sign in';sub.textContent='Enter the code sent to '+emailEl.value.trim()+'.';say('Code sent. It expires soon.');codeEl.focus()})
-      .catch(function(err){say(err&&err.status===429?'Too many attempts. Try again shortly.':((err&&err.message)||'Could not send the code.'),'err')})
-      .then(function(){submit.disabled=false});return
-    }
-    A.verifyCode({email:(emailEl.value||'').trim(),code:(codeEl.value||'').trim()})
-      .then(function(d){if(d&&d.user){finish();return}say('That code did not work.','err')})
-      .catch(function(err){say((err&&err.message)||'That code did not work.','err')}).then(function(){submit.disabled=false})
+    try{
+      var email=(emailEl.value||'').trim();if(!email)throw new Error('Enter your email address.');
+      var r=await A.auth.signInWithOtp({email:email,options:{shouldCreateUser:true,emailRedirectTo:location.origin+'/app/'}});
+      if(r.error)throw r.error;
+      emailEl.disabled=true;submit.hidden=true;
+      sub.textContent='We sent a secure sign-in link to '+email+'. Open the email and click the link to continue.';
+      say('Sign-in link sent. You can keep this page open.'); 
+    }catch(err){say((err&&err.message)||'Could not send the sign-in link.','err');submit.disabled=false}
   };
-  emailEl.focus()
+  emailEl.focus();
 })();
 </script>
 </body></html>

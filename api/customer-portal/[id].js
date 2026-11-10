@@ -15,6 +15,7 @@ export default async function(req,res){
     const {rows:u}=await db.query("UPDATE customers SET portal_enabled=$1 WHERE id=$2 AND business_id=$3 RETURNING *",[enabled,req.params.id,b[0].id]);
     return res.json({customer:u[0]});
   }
-  const proto=(req.headers["x-forwarded-proto"]||"https").split(",")[0],host=req.headers["x-forwarded-host"]||req.headers.host||"invoiceflow-uae.hatchable.site";
-  res.json({enabled:c[0].portal_enabled,url:`${proto}://${host}/portal/${c[0].portal_token}`});
+  const proto=(req.headers["x-forwarded-proto"]||"https").split(",")[0],host=req.headers["x-forwarded-host"]||req.headers.host;
+  const base=(process.env.APP_URL||(host?`${proto}://${host}`:"")).replace(/\/$/,"");
+  res.json({enabled:c[0].portal_enabled,url:`${base}/portal/${c[0].portal_token}`});
 }
