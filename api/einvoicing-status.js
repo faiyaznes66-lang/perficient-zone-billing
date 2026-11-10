@@ -49,9 +49,9 @@ export default async function(req,res){
   if(due) due.appointment_overdue=new Date().toISOString().slice(0,10)>due.appointment_deadline;
   const readiness={
     business_name:!!business.legal_name,
-    tin:/^\d{10}$/.test(String(business.tin_number||"")),
+    tin:/^1\d{9}$/.test(String(business.tin_number||"")),
     trade_license:!!business.trade_license_number,
-    seller_address:!!business.address&&!!business.city,
+    seller_address:!!business.address&&!!business.city&&!!business.emirate,
     trn:!business.vat_registered||!!business.trn,
     scope_assessed:(business.einvoice_scope_status||"not_assessed")!=="not_assessed",
     revenue_band_selected:(business.einvoice_revenue_band||"unknown")!=="unknown",
