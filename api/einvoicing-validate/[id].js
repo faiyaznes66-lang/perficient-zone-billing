@@ -47,6 +47,7 @@ export default async function(req,res){
   }:null,items,connection});
   const errors=[...built.errors];
   const warnings=[];
+  if(!business.vat_registered) warnings.push("Non-VAT seller mode uses the FTA TIN and out-of-scope line category. The Complyance sandbox must confirm this PINT AE mapping before submission.");
   if(["draft","cancelled"].includes(invoice.status)) errors.push("Only issued invoices can be submitted. Save and issue this invoice first.");
   if(!connection) warnings.push("Connect Complyance in Business Settings before provider validation.");
   if(connection&&!connection.mapping_ready) warnings.push("The Complyance source mapping is not ready. Complete the Default GETS Mapping Testbed cases in the Complyance Developer Portal.");
