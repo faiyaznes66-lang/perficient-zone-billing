@@ -381,7 +381,7 @@ function showCustomerModal(existing=null){
     customer_type:"business",salutation:"",first_name:"",last_name:"",company:"",display_name_primary:"",display_name_ar:"",
     email:"",phone:"",work_phone:"",mobile:"",customer_language:"en",other_details:"",address_line1:"",address_line2:"",
     city:"",emirate:"Dubai",postal_code:"",country:"United Arab Emirates",contact_persons:[],custom_fields:[],remarks:"",
-    trn:"",tin_number:"",buyer_id_value:"",buyer_id_authority:"",legal_name:"",location_code_type:"",location_code_value:"",
+    trn:"",tin_number:"",buyer_id_value:"",buyer_id_authority:"",buyer_registration_type:"TL",legal_name:"",location_code_type:"",location_code_value:"",
     electronic_address:"",electronic_address_scheme:"0235",einvoice_buyer_type:"business",payment_terms_days:0,portal_enabled:true,customer_owner_email:state.user&&state.user.email||"",notes:""
   };
   const contacts=Array.isArray(c.contact_persons)?JSON.parse(JSON.stringify(c.contact_persons)):[];
@@ -458,6 +458,12 @@ function showCustomerModal(existing=null){
           <label>TIN Number<input name="tin_number" value="${esc(c.tin_number||"")}"></label>
           <label>Buyer ID Value<input name="buyer_id_value" value="${esc(c.buyer_id_value||"")}"></label>
           <label>Buyer ID Authority<input name="buyer_id_authority" value="${esc(c.buyer_id_authority||"")}"></label>
+          <label>Buyer legal registration type<select name="buyer_registration_type">
+            <option value="TL" ${(c.buyer_registration_type||"TL")==="TL"?"selected":""}>Commercial / Trade licence</option>
+            <option value="EID" ${c.buyer_registration_type==="EID"?"selected":""}>Emirates ID</option>
+            <option value="PAS" ${c.buyer_registration_type==="PAS"?"selected":""}>Passport</option>
+            <option value="CD" ${c.buyer_registration_type==="CD"?"selected":""}>Cabinet decision</option>
+          </select></label>
           <label class="span2">Legal Name<input name="legal_name" value="${esc(c.legal_name||"")}"></label>
           <label>Location Code Type<input name="location_code_type" value="${esc(c.location_code_type||"")}"></label>
           <label>Location Code Value<input name="location_code_value" value="${esc(c.location_code_value||"")}"></label>
