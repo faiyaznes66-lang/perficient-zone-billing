@@ -15,7 +15,7 @@ export default async function(req,res){
     const response=await complyanceRequest(path,{environment:conn.environment||"sandbox",connect:true});
     const data=response.data||response;
     const mappingReady=data.readyForInvoicing===true;
-    const onboardingStatus=data.onboardingStatus||conn.onboarding_status||"draft";
+    const onboardingStatus=data.onboardingStatus||(data.readyForInvoicing===true?"onboarded":conn.onboarding_status||"draft");
     const connectionStatus=onboardingStatus==="onboarded"?"connected":"pending_authorization";
     const metadata={
       ...(conn.metadata||{}),
