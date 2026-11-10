@@ -62,6 +62,7 @@ Imported:
 - [x] Added seller and buyer readiness checks in Settings
 - [x] Added invoice-level e-invoice preflight validation (does not transmit)
 - [x] Added guardrails so draft/cancelled invoices cannot be submitted
+- [x] Latest Hostinger migration branch CI passed: dependency installation and JavaScript syntax checks successful
 - [ ] Apply migration 030 to Supabase before deploying this branch
 - [ ] Select a Ministry of Finance-accredited ASP and obtain its API documentation/test credentials
 - [ ] Implement and test the selected provider adapter for outbound exchange, inbound receipt and FTA reporting
