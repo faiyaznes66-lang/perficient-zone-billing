@@ -43,7 +43,13 @@ export default async function(req,res){
        RETURNING id`,
       [environment,eventId,eventType,businessId,JSON.stringify(body)]
     );
-    if(!inserted[0]) return res.status(200).json({ok:true,duplicate:true});
+    if(!inserted[0]){
+      const {rows:prior}=await db.query(
+        "SELECT processed_at FROM einvoice_webhook_events WHERE provider_code='complyance' AND environment=$1 AND provider_event_id=$2 LIMIT 1",
+        [environment,eventId]
+      );
+      if(prior[0]?.processed_at) return res.status(200).json({ok:true,duplicate:true});
+    }
 
     if(businessId&&eventType.startsWith("purchase.invoice.")){
       const documentId=eventData.documentId||null;
