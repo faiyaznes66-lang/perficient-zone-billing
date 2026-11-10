@@ -1047,7 +1047,7 @@ function renderBilling(){
   $$(".choose-plan").forEach(b=>b.onclick=async()=>{try{await api("/billing-checkout",{method:"POST",body:JSON.stringify({plan:b.dataset.plan})})}catch(err){alert(err.message)}});
 }
 function renderSettings(){
-  const b=state.business;
+  const b=state.business,e=state.einvoice||{},rd=e.readiness||{},tl=e.timeline||null,cs=e.customer_summary||{};
   $("#content").innerHTML=`<div class="page-head"><div><h1>Business settings</h1><p>Seller, VAT, bank and document defaults.</p></div></div>
   <div class="setup-card" style="margin:0"><div style="margin-bottom:22px"><strong>Business logo</strong><p class="muted">PNG, JPEG or WebP, maximum 2 MB.</p>${b.logo_url?`<img src="${esc(b.logo_url)}" style="max-width:160px;max-height:70px;display:block;margin-bottom:10px">`:""}<form id="logo-form"><input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp"><button class="btn btn-outline" type="submit">Upload logo</button></form></div>
   <form id="settings-form" class="form-grid">
@@ -1055,8 +1055,26 @@ function renderSettings(){
     <label>Trade name<input name="trade_name" value="${esc(b.trade_name||"")}"></label><label>Emirate<input name="emirate" value="${esc(b.emirate||"")}"></label>
     <label class="span2">Address<textarea name="address" rows="2">${esc(b.address||"")}</textarea></label>
     <label>Phone<input name="phone" value="${esc(b.phone||"")}"></label><label>Email<input name="email" type="email" value="${esc(b.email||"")}"></label>
-    <label>Website<input name="website" value="${esc(b.website||"")}"></label><label>TRN<input name="trn" value="${esc(b.trn||"")}"></label>
+    <label>Website<input name="website" value="${esc(b.website||"")}"></label><label>VAT TRN<input name="trn" value="${esc(b.trn||"")}"></label>
     <label>VAT registered?<select name="vat_registered"><option value="false" ${!b.vat_registered?"selected":""}>No</option><option value="true" ${b.vat_registered?"selected":""}>Yes</option></select></label>
+    <div class="span2" style="border-top:1px solid var(--border);padding-top:16px"><strong>UAE e-Invoicing seller profile</strong><p class="muted">Enter your FTA Tax Identification Number (TIN), trade licence details and the revenue band from your latest accounting period. The TIN is separate from the VAT TRN field.</p></div>
+    <label>Tax Identification Number (TIN)<input name="tin_number" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" value="${esc(b.tin_number||"")}" placeholder="10 digits"></label>
+    <label>Trade licence number<input name="trade_license_number" value="${esc(b.trade_license_number||"")}"></label>
+    <label>Trade licence issuing authority<input name="trade_license_authority" value="${esc(b.trade_license_authority||"")}" placeholder="e.g. Dubai DET"></label>
+    <label>e-Invoicing scope assessment<select name="einvoice_scope_status">
+      <option value="not_assessed" ${(b.einvoice_scope_status||"not_assessed")==="not_assessed"?"selected":""}>Not assessed</option>
+      <option value="in_scope" ${b.einvoice_scope_status==="in_scope"?"selected":""}>In scope</option>
+      <option value="voluntary" ${b.einvoice_scope_status==="voluntary"?"selected":""}>Voluntary adoption</option>
+      <option value="excluded" ${b.einvoice_scope_status==="excluded"?"selected":""}>Excluded (confirm legal basis)</option>
+    </select></label>
+    <label>Latest annual revenue band<select name="einvoice_revenue_band">
+      <option value="unknown" ${(b.einvoice_revenue_band||"unknown")==="unknown"?"selected":""}>Not confirmed</option>
+      <option value="below_50m" ${b.einvoice_revenue_band==="below_50m"?"selected":""}>Below AED 50 million</option>
+      <option value="at_or_above_50m" ${b.einvoice_revenue_band==="at_or_above_50m"?"selected":""}>AED 50 million or above</option>
+      <option value="government" ${b.einvoice_revenue_band==="government"?"selected":""}>Government entity</option>
+    </select></label>
+    <label class="span2" style="display:flex;flex-direction:row;align-items:center;gap:9px"><input name="einvoice_is_tax_group_member" type="checkbox" style="width:auto" ${b.einvoice_is_tax_group_member?"checked":""}> This legal entity is a member of a UAE VAT Tax Group</label>
+    <label>Branch trade licence number (if applicable)<input name="einvoice_branch_trade_license_number" value="${esc(b.einvoice_branch_trade_license_number||"")}"></label>
     <label>Default VAT %<input name="default_tax_rate" type="number" step=".01" value="${esc(b.default_tax_rate)}"></label>
     <label>Currency<input name="currency" value="${esc(b.currency)}"></label><label>Invoice prefix<input name="invoice_prefix" value="${esc(b.invoice_prefix)}"></label>
     <label>Quote prefix<input name="quote_prefix" value="${esc(b.quote_prefix||"QUO-")}"></label><label>Default language<select name="default_language"><option value="en" ${b.default_language!=="ar"?"selected":""}>English</option><option value="ar" ${b.default_language==="ar"?"selected":""}>Arabic</option></select></label>
@@ -1071,8 +1089,24 @@ function renderSettings(){
     <label class="span2" style="display:flex;flex-direction:row;align-items:center;gap:9px"><input name="hide_platform_branding" type="checkbox" style="width:auto" ${b.hide_platform_branding?"checked":""}> Remove “Created with Perficient Zone Billing” branding (Pro/Business)</label>
     <div class="span2"><button class="btn btn-primary">Save changes</button></div>
   </form></div>
-  <div class="panel"><div class="panel-head"><h3>UAE e-invoicing readiness</h3></div><div style="padding:20px"><p><strong>Provider connection:</strong> ${state.einvoice&&state.einvoice.connected?"Connected":"Not connected"}</p><p class="muted">${esc(state.einvoice&&state.einvoice.message||"No UAE Accredited Service Provider is connected.")}</p><div class="readiness-grid"><span>${state.einvoice&&state.einvoice.readiness&&state.einvoice.readiness.business_name?"✓":"○"} Business name</span><span>${state.einvoice&&state.einvoice.readiness&&state.einvoice.readiness.trn?"✓":"○"} TRN readiness</span><span>${state.einvoice&&state.einvoice.readiness&&state.einvoice.readiness.vat_configuration?"✓":"○"} VAT configuration</span><span>${state.einvoice&&state.einvoice.readiness&&state.einvoice.readiness.asp_provider_connected?"✓":"○"} ASP connection</span></div><p class="muted" style="margin-top:12px">No government or ASP transmission is performed until a provider-specific integration is configured.</p></div></div>`;
-  $("#settings-form").onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target).entries());body.vat_registered=body.vat_registered==="true";body.default_tax_rate=Number(body.default_tax_rate);body.hide_platform_branding=body.hide_platform_branding==="on";try{const out=await api("/business",{method:"POST",body:JSON.stringify(body)});state.business=out.business;await Promise.all([loadPlan(),loadEinvoice()]);alert(out.notice||"Settings saved");renderSettings()}catch(err){alert(err.message)}};
+  <div class="panel"><div class="panel-head"><h3>UAE e-Invoicing readiness</h3><a href="https://mof.gov.ae/en/about-us/initiatives/einvoicing/einvoicing-accredited-service-providers-asps/" target="_blank" rel="noopener">Official accredited ASP list ↗</a></div><div style="padding:20px">
+    <p><strong>ASP connection:</strong> ${e.connected?"Connected":"Not connected"}</p>
+    <p class="muted">${esc(e.message||"No UAE Accredited Service Provider is connected.")}</p>
+    <div class="readiness-grid">
+      <span>${rd.business_name?"✓":"○"} Legal business name</span>
+      <span>${rd.tin?"✓":"○"} 10-digit TIN</span>
+      <span>${rd.trade_license?"✓":"○"} Trade licence</span>
+      <span>${rd.seller_address?"✓":"○"} Seller address</span>
+      <span>${rd.trn?"✓":"○"} VAT TRN (if registered)</span>
+      <span>${rd.asp_provider_connected?"✓":"○"} Accredited ASP</span>
+      <span>Business customers: ${Number(cs.business_customers||0)}</span>
+      <span>Customers missing TIN/endpoint: ${Number(cs.customers_missing_identifiers||0)}</span>
+    </div>
+    ${tl ? '<p style="margin-top:14px"><strong>Phase:</strong> '+esc(tl.phase)+' · ASP appointment deadline: '+esc(tl.appointment_deadline)+' · Implementation: '+esc(tl.implementation_date)+'</p>' : '<p class="muted" style="margin-top:14px">Select the annual revenue band above to display the applicable implementation timeline.</p>'}
+    ${e.tax_group_member ? '<p class="muted">Tax Group note: only qualifying transactions between members of the same Tax Group receive the temporary 24-month exclusion from 1 January 2027; third-party transactions remain subject to the applicable rules.</p>' : ''}
+    <p class="muted" style="margin-top:12px">This panel checks profile readiness. Live exchange and FTA reporting remain disabled until an ASP is selected, a provider-specific adapter is configured and end-to-end testing passes.</p>
+  </div></div>`;
+  $("#settings-form").onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target).entries());body.vat_registered=body.vat_registered==="true";body.default_tax_rate=Number(body.default_tax_rate);body.hide_platform_branding=body.hide_platform_branding==="on";body.einvoice_is_tax_group_member=body.einvoice_is_tax_group_member==="on";try{const out=await api("/business",{method:"POST",body:JSON.stringify(body)});state.business=out.business;await Promise.all([loadPlan(),loadEinvoice()]);alert(out.notice||"Settings saved");renderSettings()}catch(err){alert(err.message)}};
   $("#logo-form").onsubmit=async e=>{e.preventDefault();const file=$("#logo-file").files[0];if(!file){alert("Choose a logo first.");return}const fd=new FormData();fd.append("logo",file);try{const res=await fetch(API+"/business-logo",{method:"POST",body:fd});const data=await res.json();if(!res.ok)throw new Error(data.error||"Upload failed");state.business=data.business;alert("Logo uploaded.");renderSettings()}catch(err){alert(err.message)}};
 }
 
