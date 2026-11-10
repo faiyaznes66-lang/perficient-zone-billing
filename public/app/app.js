@@ -381,7 +381,7 @@ function showCustomerModal(existing=null){
     email:"",phone:"",work_phone:"",mobile:"",customer_language:"en",other_details:"",address_line1:"",address_line2:"",
     city:"",emirate:"Dubai",postal_code:"",country:"United Arab Emirates",contact_persons:[],custom_fields:[],remarks:"",
     trn:"",tin_number:"",buyer_id_value:"",buyer_id_authority:"",legal_name:"",location_code_type:"",location_code_value:"",
-    electronic_address:"",payment_terms_days:0,portal_enabled:true,customer_owner_email:state.user&&state.user.email||"",notes:""
+    electronic_address:"",electronic_address_scheme:"0235",einvoice_buyer_type:"business",payment_terms_days:0,portal_enabled:true,customer_owner_email:state.user&&state.user.email||"",notes:""
   };
   const contacts=Array.isArray(c.contact_persons)?JSON.parse(JSON.stringify(c.contact_persons)):[];
   const custom=Array.isArray(c.custom_fields)?JSON.parse(JSON.stringify(c.custom_fields)):[];
@@ -460,7 +460,14 @@ function showCustomerModal(existing=null){
           <label class="span2">Legal Name<input name="legal_name" value="${esc(c.legal_name||"")}"></label>
           <label>Location Code Type<input name="location_code_type" value="${esc(c.location_code_type||"")}"></label>
           <label>Location Code Value<input name="location_code_value" value="${esc(c.location_code_value||"")}"></label>
+          <label class="span2">Buyer type for UAE e-Invoicing<select name="einvoice_buyer_type">
+            <option value="business" ${(c.einvoice_buyer_type|| (c.customer_type==="individual"?"consumer":"business"))==="business"?"selected":""}>UAE business (B2B)</option>
+            <option value="government" ${c.einvoice_buyer_type==="government"?"selected":""}>Government entity (B2G)</option>
+            <option value="consumer" ${(c.einvoice_buyer_type||"")==="consumer"||(!c.einvoice_buyer_type&&c.customer_type==="individual")?"selected":""}>Consumer / individual (B2C)</option>
+            <option value="overseas_business" ${c.einvoice_buyer_type==="overseas_business"?"selected":""}>Overseas business</option>
+          </select></label>
           <label class="span2">Electronic Address<input name="electronic_address" value="${esc(c.electronic_address||"")}" placeholder="Electronic invoicing / routing address"></label>
+          <label>Electronic address scheme<input name="electronic_address_scheme" value="${esc(c.electronic_address_scheme||"0235")}" placeholder="0235"></label>
         </div>
       </details>
 
