@@ -1,60 +1,65 @@
 # Complyance UAE e-Invoicing integration
 
-## Scope
+## Scope and tenancy
 
-This integration is for the Perficient Zone Billing SaaS: Perficient Zone's own business account and each customer business account use the same Complyance ISV workspace credentials, while each UAE business has its own FTA ASP authorization, Complyance company, branch and source identity.
+Perficient Zone Billing is a multi-business SaaS. Perficient Zone's own company account and each customer company's account are represented by separate business records. The ISV workspace API key is shared server-side by the application; each business has its own UAE TIN, FTA ASP authorisation, Complyance company, branch and source identity.
 
-The first release is sandbox-only and supports UAE full tax invoices for B2B/B2G customers, subject to the field and tax-category checks in `lib/complyance.js`. It does not automatically submit consumer, overseas, simplified, credit-note or unsupported VAT/transaction cases.
+The current connector is sandbox-first. The implemented outbound mapping supports full UAE tax invoices for B2B/B2G buyers, with standard-rated 5% VAT for VAT-registered sellers and out-of-scope lines for non-VAT sellers. Unsupported scenarios are blocked by local preflight rather than guessed: discounts, exempt/zero-rated/reverse-charge VAT categories, overseas buyers, consumer invoices, selected transaction modifiers and credit notes require additional mapping and testing.
 
 ## Server environment
 
-Set these only in the Node.js server environment (never in browser/runtime-config variables):
+Set these only in the Hostinger Node.js server environment. Never put them in browser JavaScript or `runtime-config.js`.
 
-- `COMPLYANCE_SANDBOX_API_KEY`: sandbox API key from the Complyance Partner Platform Developer Portal.
-- `COMPLYANCE_PRODUCTION_API_KEY`: production key; leave unset until go-live approval.
-- `EINVOICE_CREDENTIALS_ENCRYPTION_KEY`: 64 hex characters (32 bytes), reserved for encrypted provider credentials.
-- `COMPLYANCE_WEBHOOK_SECRET_SANDBOX` and `COMPLYANCE_WEBHOOK_SECRET_PRODUCTION`: reserved for separately configured webhook signature verification.
+- `COMPLYANCE_SANDBOX_API_KEY`: sandbox read/write API key from the Complyance Partner Platform Developer Portal.
+- `COMPLYANCE_PRODUCTION_API_KEY`: keep unset until production onboarding and go-live are approved.
+- `COMPLYANCE_WEBHOOK_SECRET_SANDBOX`: HMAC signing secret configured for the sandbox webhook.
+- `COMPLYANCE_WEBHOOK_SECRET_PRODUCTION`: production webhook secret; keep unset until production is enabled.
+- `EINVOICE_CREDENTIALS_ENCRYPTION_KEY`: 64 hex characters (32 bytes), reserved for encrypted credential storage.
 
-The app does not store the ISV API key in a business record. It remains a server-side environment secret.
+The ISV API key is held as a server environment secret, not copied into a business record or browser.
 
-## Per-business onboarding
+## Per-business sandbox onboarding
 
-1. The business completes its Business Settings: legal name, UAE FTA TIN (10 digits, not the 15-digit VAT TRN), VAT/TRN details where registered, trade licence number and issuing authority, emirate, city, address, and an authorised contact name/email/mobile.
-2. The business administrator authorizes Complyance as its ASP with the FTA for the sandbox environment, using the same TIN and administrator email.
-3. The signed-in business administrator calls `POST /api/einvoice` with `{"action":"connect"}`.
-4. The app creates the business's company/branch/source in Complyance sandbox and stores the returned IDs and readiness status.
-5. In the Complyance Partner Developer Portal, run the required Default GETS Mapping Testbed cases until they pass. Do not submit invoices while `readyForInvoicing` is false.
+1. Complete the business profile in Settings: legal name, UAE FTA TIN (10 digits, not the 15-digit VAT TRN), VAT/TRN status, trade licence number and issuing authority, emirate, city, address, revenue band, scope assessment and authorised contact details.
+2. The business administrator must authorise Complyance as its ASP with the FTA for the sandbox environment. Use the same 10-digit TIN and administrator email in Business Settings that were used for the FTA ASP authorisation.
+3. In Settings, explicitly confirm that the business has authorised Complyance, then use Connect to Complyance. The backend checks for an existing company/source before attempting creation to reduce duplicate onboarding.
+4. In the Complyance Partner Developer Portal, open Default GETS Mapping and run the required Testbed cases until they pass. Use Refresh status in the app to update onboarding and mapping readiness.
+5. Do not submit invoices until the connection is marked connected and mapping readiness is true.
 
-Each business gets a deterministic, distinct source name derived from its internal business ID.
+The application generates a distinct source name for each business account.
 
-## API
+## Application endpoints
 
-All endpoints below require a signed-in application session.
+All endpoints below require an authenticated application session, except the signed webhook receiver.
 
-- `GET /api/einvoice` — read this business's sandbox connection and recent outbound documents.
-- `POST /api/einvoice` with `{"action":"connect"}` — onboard this business in sandbox. Existing company records are not re-created.
-- `POST /api/einvoice` with `{"action":"validate","invoiceId":"..."}` — validate a finalized invoice payload without submitting it for delivery.
-- `POST /api/einvoice` with `{"action":"submit","invoiceId":"..."}` — submit an eligible finalized invoice to Complyance sandbox.
-- `POST /api/einvoice` with `{"action":"refresh","documentId":"..."}` — retrieve the provider's current status and persist it.
+- `GET /api/einvoicing-status` — business profile, scope/revenue timeline, ASP connection and readiness checks.
+- `POST /api/einvoicing-connect` — onboard or recover the business's Complyance sandbox company. Request must include `{"authorized_by_business":true}` after the FTA ASP authorisation is complete.
+- `POST /api/einvoicing-sync` — refresh company onboarding and mapping readiness from Complyance.
+- `GET /api/einvoicing-validate/:invoiceId` — local and (when ready) Complyance payload validation; this does not submit the invoice.
+- `POST /api/einvoicing-submit/:invoiceId` — requires `{"confirm_submit":true}`; validates first, then submits to Unify. Duplicate and uncertain submissions are guarded.
+- `POST /api/einvoicing-document-status/:invoiceId` — retrieve and store the provider document status.
+- `GET /api/einvoicing-inbox` — list received purchase invoices.
+- `POST /api/webhooks/complyance/sandbox` — public endpoint protected by HMAC SHA-256 signature verification and event deduplication. Configure this URL and its secret in the Complyance sandbox webhook settings.
 
-The API stores the request payload hash, provider document ID, generated XML (when returned), provider response, validation errors and status events. A timeout/5xx during submission is marked `submission_unknown`; the app blocks blind retries and requires a status/portal check to avoid duplicate invoices.
+The invoice page exposes validation and an explicit send confirmation. Settings provides the seller readiness and connection workflow. The inbox receives supported purchase-invoice events.
 
-## Production checklist
+A successful Unify HTTP response is not final acceptance. The document must be refreshed until it reaches terminal state; `final_valid` is the accepted state. A timeout after a submission may have started is treated as an unknown outcome; do not blindly resubmit.
 
-Production is deliberately not enabled by this route yet. Before enabling it:
+## Production go-live
 
-1. Complete the full sandbox test matrix and receive `final_valid` for each supported document type.
-2. Complete all required production Default GETS Mapping Testbed cases.
+Production is not enabled by the current onboarding flow. Before production is added:
+
+1. Complete the supported sandbox test matrix and receive terminal `final_valid` results.
+2. Pass all required production Default GETS Mapping Testbed cases.
 3. Create a production API key in the Partner Platform.
-4. Have each business authorize Complyance as its ASP with the FTA for production.
-5. Onboard each business separately with `platformEnvironment: "production"`.
-6. Run a controlled production pilot and verify terminal `final_valid` status before treating a document as accepted.
+4. Have each business authorise Complyance as its ASP with the FTA for production.
+5. Implement and test separate production onboarding and environment switching for each business.
+6. Configure the production webhook and secret, then run a controlled production pilot.
 
-A successful HTTP response from Unify is not final acceptance. The app must check the document until `isTerminal` is true and state is `final_valid`.
+## Security and operational notes
 
-## Current limitations
-
-- The current route only handles the outbound sales-invoice path.
-- The first mapping supports full UAE tax invoices for B2B/B2G and the supported standard/out-of-scope tax cases implemented by the payload builder.
-- Purchase-invoice inbox/webhook ingestion, credit-note submission, UI settings screens and production submission are follow-on work.
-- Never expose Complyance keys, Supabase service credentials or the encryption key to the browser.
+- Keep Complyance API keys, Supabase service credentials and encryption keys server-side.
+- Webhook signatures are checked against the raw request body using timing-safe comparison.
+- Webhook events are deduplicated by provider, environment and event ID.
+- Business ownership is checked on invoice, status and inbox routes.
+- Review the PINT AE mapping and supported transaction types before enabling additional invoice categories.
