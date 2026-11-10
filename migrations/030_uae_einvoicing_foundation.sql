@@ -16,6 +16,9 @@ ALTER TABLE customers
   ADD COLUMN IF NOT EXISTS electronic_address_scheme TEXT NOT NULL DEFAULT '0235',
   ADD COLUMN IF NOT EXISTS einvoice_buyer_type TEXT NOT NULL DEFAULT 'business';
 
+UPDATE customers SET einvoice_buyer_type='consumer'
+WHERE customer_type='individual' AND einvoice_buyer_type='business';
+
 ALTER TABLE invoices
   ADD COLUMN IF NOT EXISTS einvoice_document_type TEXT NOT NULL DEFAULT 'tax_invoice',
   ADD COLUMN IF NOT EXISTS einvoice_buyer_type TEXT NOT NULL DEFAULT 'business',
